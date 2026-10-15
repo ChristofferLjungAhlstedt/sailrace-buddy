@@ -16,7 +16,7 @@ that it hasn't had a compiler check yet.
 ## Getting started
 
 ```bash
-flutter create --project-name sailrace_buddy --org com.yourdomain --overwrite .
+flutter create --project-name sailrace_buddy --org com.yourdomain .
 # (this regenerates ios/, android/, platform boilerplate around the
 #  lib/ and pubspec.yaml already provided here)
 

@@ -29,8 +29,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
   @override
   Widget build(BuildContext context) {
     final query = widget.db.select(widget.db.raceEvents)
-      ..where((r) =>
-          r.boatId.equals(widget.boat.id) & r.type.equalsValue(EventType.practice))
+                  ..where((r) => Expression.and([
+            r.boatId.equals(widget.boat.id),
+            r.type.equalsValue(EventType.practice),
+          ]))
       ..orderBy([(r) => OrderingTerm.desc(r.date)]);
 
     return Scaffold(

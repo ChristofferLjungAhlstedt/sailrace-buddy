@@ -4,7 +4,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-export 'package:drift/drift.dart' show Value, OrderingTerm, Insertable;
+export 'package:drift/drift.dart' show Value, OrderingTerm, Insertable, Expression;
 
 part 'database.g.dart';
 
@@ -231,19 +231,41 @@ class AppDatabase extends _$AppDatabase {
   /// Falls back to wind_speed_kt as both min and max when the detailed
   /// range wasn't filled in, so quick-entry and detailed-entry races are
   /// covered by the same query.
-  Future<List<RaceEvent>> bestTrimsForWind({
+      Future<List<RaceEvent>> bestTrimsForWind({
     required double minKt,
     required double maxKt,
     bool includeFlagged = true,
   }) {
     final query = select(raceEvents)
-      ..where((r) =>
-          r.boatFeelScore.isNotNull() &
-          (r.windSpeedMinKt.isNotNull() & r.windSpeedMaxKt.isNotNull()
-                  ? (r.windSpeedMinKt.isSmallerOrEqualValue(maxKt) &
-                      r.windSpeedMaxKt.isBiggerOrEqualValue(minKt))
-                  : (r.windSpeedKt.isBiggerOrEqualValue(minKt) &
-                      r.windSpeedKt.isSmallerOrEqualValue(maxKt))))
+      ..where((r) {
+        // Races with a logged min/max range: match if it overlaps the search range.
+        final hasRange = Expression.and([
+          r.windSpeedMinKt.isNotNull(),
+          r.windSpeedMaxKt.isNotNull(),
+        ]);
+        final rangeOverlaps = Expression.and([
+          r.windSpeedMinKt.isSmallerOrEqualValue(maxKt),
+          r.windSpeedMaxKt.isBiggerOrEqualValue(minKt),
+        ]);
+
+        // Quick-entry races with a single wind value: match if it falls in the range.
+        final noRange = Expression.or([
+          r.windSpeedMinKt.isNull(),
+          r.windSpeedMaxKt.isNull(),
+        ]);
+        final singleInRange = Expression.and([
+          r.windSpeedKt.isBiggerOrEqualValue(minKt),
+          r.windSpeedKt.isSmallerOrEqualValue(maxKt),
+        ]);
+
+        return Expression.and([
+          r.boatFeelScore.isNotNull(),
+          Expression.or([
+            Expression.and([hasRange, rangeOverlaps]),
+            Expression.and([noRange, singleInRange]),
+          ]),
+        ]);
+      })
       ..orderBy([(r) => OrderingTerm.desc(r.boatFeelScore)]);
 
     if (!includeFlagged) {
