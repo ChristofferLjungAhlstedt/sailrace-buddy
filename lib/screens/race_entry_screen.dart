@@ -30,7 +30,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
   late RaceEventsCompanion _d;
   bool _sailsExpanded = false;
 
-    @override
+  @override
   void initState() {
     super.initState();
     final d = widget.draft;
@@ -68,8 +68,9 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasSailInfo = (_d.jibDesign.present && _d.jibDesign.value.isNotEmpty) ||
-        (_d.mainDesign.present && _d.mainDesign.value.isNotEmpty);
+    final hasSailInfo =
+        (_d.jibDesign.present && _d.jibDesign.value.isNotEmpty) ||
+            (_d.mainDesign.present && _d.mainDesign.value.isNotEmpty);
 
     return Scaffold(
       appBar: AppBar(
@@ -114,13 +115,15 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
           const SizedBox(height: 16),
 
           // --- Trim variables ---
-          GridView.count(
-            crossAxisCount: 2,
+          GridView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 2.2,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              mainAxisExtent: 92,
+            ),
             children: [
               StepperField(
                 label: 'Jib car',
@@ -133,8 +136,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
               StepperField(
                 label: 'Sheet marker',
                 value: _d.sheetMarker.value?.toDouble(),
-                onChanged: (v) => _update(
-                    (d) => d.copyWith(sheetMarker: Value(v.round()))),
+                onChanged: (v) =>
+                    _update((d) => d.copyWith(sheetMarker: Value(v.round()))),
               ),
               StepperField(
                 label: 'In-hauler',
@@ -154,8 +157,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                 step: 0.5,
                 decimals: 1,
                 suffix: 't',
-                onChanged: (v) => _update(
-                    (d) => d.copyWith(innerShroudTurns: Value(v))),
+                onChanged: (v) =>
+                    _update((d) => d.copyWith(innerShroudTurns: Value(v))),
               ),
               StepperField(
                 label: 'Outer shroud',
@@ -163,8 +166,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                 step: 0.5,
                 decimals: 1,
                 suffix: 't',
-                onChanged: (v) => _update(
-                    (d) => d.copyWith(outerShroudTurns: Value(v))),
+                onChanged: (v) =>
+                    _update((d) => d.copyWith(outerShroudTurns: Value(v))),
               ),
             ],
           ),
@@ -216,13 +219,16 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
             value: _d.raceScore.value,
             onChanged: (v) => _update((d) => d.copyWith(
                   raceScore: Value(v),
-                  boatFeelScore: d.scoreLinked.value ? Value(v) : d.boatFeelScore,
+                  boatFeelScore:
+                      d.scoreLinked.value ? Value(v) : d.boatFeelScore,
                 )),
           ),
           const SizedBox(height: 8),
           LinkedScore(
             label: 'Boat feel',
-            hint: _d.scoreLinked.value ? '(linked to race score)' : '(independent)',
+            hint: _d.scoreLinked.value
+                ? '(linked to race score)'
+                : '(independent)',
             value: _d.boatFeelScore.value,
             onChanged: (v) => _update((d) => d.copyWith(
                   boatFeelScore: Value(v),
@@ -268,7 +274,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
     );
   }
 
-  Widget _textField(String label, String value, ValueChanged<String> onChanged) {
+  Widget _textField(
+      String label, String value, ValueChanged<String> onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: TextFormField(
@@ -306,7 +313,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButtonFormField<T>(
-          decoration: InputDecoration(labelText: label, border: InputBorder.none),
+          decoration:
+              InputDecoration(labelText: label, border: InputBorder.none),
           value: value,
           items: items
               .map((e) =>
@@ -331,15 +339,15 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButtonFormField<String>(
-          decoration:
-              const InputDecoration(labelText: 'Error source', border: InputBorder.none),
+          decoration: const InputDecoration(
+              labelText: 'Error source', border: InputBorder.none),
           value: current.isEmpty ? null : current.first,
           hint: const Text('None'),
           items: ErrorTag.values
               .map((e) => DropdownMenuItem(value: e.name, child: Text(e.name)))
               .toList(),
-          onChanged: (v) => _update((d) => d.copyWith(
-              errorTags: Value(v ?? ''))),
+          onChanged: (v) =>
+              _update((d) => d.copyWith(errorTags: Value(v ?? ''))),
         ),
       ),
     );
