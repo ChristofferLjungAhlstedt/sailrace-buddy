@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
 /// Quick single-value entry by default (wind_speed_kt), with an expandable
-/// min/max range. The moment the user edits min or max away from the
-/// prefilled single value, the fields unlink and wind_speed_kt becomes
-/// derived (midpoint) rather than directly editable - mirrors the
-/// race-score/boat-feel linking pattern used elsewhere in the form.
+/// min/max range.
+///
+/// Rules:
+///  - Simple +/- changes the single value. If a range exists, the whole
+///    range shifts with it, so nothing is lost.
+///  - Editing min or max unlinks the range from the single value, and the
+///    single value becomes the midpoint of min and max.
+///  - Min can never exceed max (moving one pushes the other along).
+///  - The widget opens expanded if the race already has a real range.
 class WindSpeedField extends StatefulWidget {
   const WindSpeedField({
     super.key,
@@ -36,7 +41,21 @@ class WindSpeedField extends StatefulWidget {
 }
 
 class _WindSpeedFieldState extends State<WindSpeedField> {
-  bool _expanded = false;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    final min = widget.minKt;
+    final max = widget.maxKt;
+    _expanded = min != null && max != null && min != max;
+  }
+
+  double get _step => widget.useMs ? WindSpeedField.msToKt(0.5) : 1.0;
+
+  bool get _hasRange => widget.minKt != null && widget.maxKt != null;
+
+  double _nonNegative(double v) => v < 0 ? 0 : v;
 
   String _fmt(double? kt) {
     if (kt == null) return '--';
@@ -45,7 +64,49 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
     return '${v.toStringAsFixed(1)} $unit';
   }
 
-  double _step() => widget.useMs ? WindSpeedField.msToKt(0.5) : 1.0;
+  /// Simple +/- on the single value. Shifts the range too if there is one.
+  void _nudge(double delta) {
+    final base = widget.windSpeedKt ?? 0;
+    final next = _nonNegative(base + delta);
+    final applied = next - base;
+    widget.onChanged(
+      windSpeedKt: next,
+      minKt: _hasRange ? _nonNegative(widget.minKt! + applied) : null,
+      maxKt: _hasRange ? _nonNegative(widget.maxKt! + applied) : null,
+      linked: widget.linked,
+    );
+  }
+
+  /// Edit min and/or max. Always unlinks and keeps the single value as
+  /// the midpoint.
+  void _setRange({double? min, double? max}) {
+    final fallback = widget.windSpeedKt ?? 0;
+    var newMin = _nonNegative(min ?? widget.minKt ?? fallback);
+    var newMax = _nonNegative(max ?? widget.maxKt ?? fallback);
+
+    if (min != null && newMin > newMax) newMax = newMin;
+    if (max != null && newMax < newMin) newMin = newMax;
+
+    widget.onChanged(
+      windSpeedKt: (newMin + newMax) / 2,
+      minKt: newMin,
+      maxKt: newMax,
+      linked: false,
+    );
+  }
+
+  void _toggleExpanded() {
+    setState(() => _expanded = !_expanded);
+    if (_expanded && !_hasRange) {
+      // Prefill min/max from the quick-entry value, still linked.
+      widget.onChanged(
+        windSpeedKt: widget.windSpeedKt,
+        minKt: widget.windSpeedKt,
+        maxKt: widget.windSpeedKt,
+        linked: true,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +117,7 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -75,11 +137,7 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                             icon: const Icon(Icons.remove, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () {
-                              final next = (widget.windSpeedKt ?? 0) - _step();
-                              widget.onChanged(
-                                  windSpeedKt: next, linked: true);
-                            },
+                            onPressed: () => _nudge(-_step),
                           ),
                           const SizedBox(width: 8),
                           Text(_fmt(widget.windSpeedKt),
@@ -89,11 +147,7 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                             icon: const Icon(Icons.add, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () {
-                              final next = (widget.windSpeedKt ?? 0) + _step();
-                              widget.onChanged(
-                                  windSpeedKt: next, linked: true);
-                            },
+                            onPressed: () => _nudge(_step),
                           ),
                         ],
                       )
@@ -109,20 +163,7 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                 icon: Icon(_expanded
                     ? Icons.keyboard_arrow_up
                     : Icons.keyboard_arrow_down),
-                onPressed: () {
-                  setState(() => _expanded = !_expanded);
-                  if (_expanded &&
-                      widget.minKt == null &&
-                      widget.maxKt == null) {
-                    // Prefill min/max from the quick-entry value.
-                    widget.onChanged(
-                      windSpeedKt: widget.windSpeedKt,
-                      minKt: widget.windSpeedKt,
-                      maxKt: widget.windSpeedKt,
-                      linked: true,
-                    );
-                  }
-                },
+                onPressed: _toggleExpanded,
               ),
             ],
           ),
@@ -134,16 +175,10 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                   child: _MiniStepper(
                     label: 'Min',
                     display: _fmt(widget.minKt),
-                    onMinus: () => widget.onChanged(
-                      minKt: (widget.minKt ?? 0) - _step(),
-                      maxKt: widget.maxKt,
-                      linked: false,
-                    ),
-                    onPlus: () => widget.onChanged(
-                      minKt: (widget.minKt ?? 0) + _step(),
-                      maxKt: widget.maxKt,
-                      linked: false,
-                    ),
+                    onMinus: () => _setRange(
+                        min: (widget.minKt ?? widget.windSpeedKt ?? 0) - _step),
+                    onPlus: () => _setRange(
+                        min: (widget.minKt ?? widget.windSpeedKt ?? 0) + _step),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -151,16 +186,10 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                   child: _MiniStepper(
                     label: 'Max',
                     display: _fmt(widget.maxKt),
-                    onMinus: () => widget.onChanged(
-                      minKt: widget.minKt,
-                      maxKt: (widget.maxKt ?? 0) - _step(),
-                      linked: false,
-                    ),
-                    onPlus: () => widget.onChanged(
-                      minKt: widget.minKt,
-                      maxKt: (widget.maxKt ?? 0) + _step(),
-                      linked: false,
-                    ),
+                    onMinus: () => _setRange(
+                        max: (widget.maxKt ?? widget.windSpeedKt ?? 0) - _step),
+                    onPlus: () => _setRange(
+                        max: (widget.maxKt ?? widget.windSpeedKt ?? 0) + _step),
                   ),
                 ),
               ],
@@ -188,6 +217,7 @@ class _MiniStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.labelSmall),
@@ -199,7 +229,9 @@ class _MiniStepper extends StatelessWidget {
               constraints: const BoxConstraints(),
               onPressed: onMinus,
             ),
+            const SizedBox(width: 6),
             Text(display, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(width: 6),
             IconButton(
               icon: const Icon(Icons.add, size: 16),
               padding: EdgeInsets.zero,
