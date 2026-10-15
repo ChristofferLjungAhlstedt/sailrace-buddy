@@ -1,0 +1,28 @@
+name: sailrace_buddy
+description: Offline sailing trim logbook for J70 (and other classes).
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  drift: ^2.20.0
+  sqlite3_flutter_libs: ^0.6.0+eol
+  path_provider: ^2.1.3
+  path: ^1.9.0
+  uuid: ^4.4.0
+  intl: ^0.20.3
+  file_picker: ^13.1.0
+  share_plus: ^13.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.11
+
+flutter:
+  uses-material-design: true
