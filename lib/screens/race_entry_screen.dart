@@ -115,61 +115,63 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
           const SizedBox(height: 16),
 
           // --- Trim variables ---
-          GridView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              mainAxisExtent: 92,
-            ),
-            children: [
-              StepperField(
-                label: 'Jib car',
-                value: _d.jibCarPosition.value,
-                step: 0.5,
-                decimals: 1,
-                onChanged: (v) =>
-                    _update((d) => d.copyWith(jibCarPosition: Value(v))),
-              ),
-              StepperField(
-                label: 'Sheet marker',
-                value: _d.sheetMarker.value?.toDouble(),
-                onChanged: (v) =>
-                    _update((d) => d.copyWith(sheetMarker: Value(v.round()))),
-              ),
-              StepperField(
-                label: 'In-hauler',
-                value: _d.inhaulerMarker.value?.toDouble(),
-                onChanged: (v) => _update(
-                    (d) => d.copyWith(inhaulerMarker: Value(v.round()))),
-              ),
-              StepperField(
-                label: 'Jib halyard',
-                value: _d.jibHalyardTension.value?.toDouble(),
-                onChanged: (v) => _update(
-                    (d) => d.copyWith(jibHalyardTension: Value(v.round()))),
-              ),
-              StepperField(
-                label: 'Inner shroud',
-                value: _d.innerShroudTurns.value,
-                step: 0.5,
-                decimals: 1,
-                suffix: 't',
-                onChanged: (v) =>
-                    _update((d) => d.copyWith(innerShroudTurns: Value(v))),
-              ),
-              StepperField(
-                label: 'Outer shroud',
-                value: _d.outerShroudTurns.value,
-                step: 0.5,
-                decimals: 1,
-                suffix: 't',
-                onChanged: (v) =>
-                    _update((d) => d.copyWith(outerShroudTurns: Value(v))),
-              ),
-            ],
+                    LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = (constraints.maxWidth - 8) / 2;
+              final fields = <Widget>[
+                StepperField(
+                  label: 'Jib car',
+                  value: _d.jibCarPosition.value,
+                  step: 0.5,
+                  decimals: 1,
+                  onChanged: (v) =>
+                      _update((d) => d.copyWith(jibCarPosition: Value(v))),
+                ),
+                StepperField(
+                  label: 'Sheet marker',
+                  value: _d.sheetMarker.value?.toDouble(),
+                  onChanged: (v) => _update(
+                      (d) => d.copyWith(sheetMarker: Value(v.round()))),
+                ),
+                StepperField(
+                  label: 'In-hauler',
+                  value: _d.inhaulerMarker.value?.toDouble(),
+                  onChanged: (v) => _update(
+                      (d) => d.copyWith(inhaulerMarker: Value(v.round()))),
+                ),
+                StepperField(
+                  label: 'Jib halyard',
+                  value: _d.jibHalyardTension.value?.toDouble(),
+                  onChanged: (v) => _update(
+                      (d) => d.copyWith(jibHalyardTension: Value(v.round()))),
+                ),
+                StepperField(
+                  label: 'Inner shroud',
+                  value: _d.innerShroudTurns.value,
+                  step: 0.5,
+                  decimals: 1,
+                  suffix: 't',
+                  onChanged: (v) => _update(
+                      (d) => d.copyWith(innerShroudTurns: Value(v))),
+                ),
+                StepperField(
+                  label: 'Outer shroud',
+                  value: _d.outerShroudTurns.value,
+                  step: 0.5,
+                  decimals: 1,
+                  suffix: 't',
+                  onChanged: (v) => _update(
+                      (d) => d.copyWith(outerShroudTurns: Value(v))),
+                ),
+              ];
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: fields
+                    .map((f) => SizedBox(width: cardWidth, child: f))
+                    .toList(),
+              );
+            },
           ),
           const SizedBox(height: 8),
 
