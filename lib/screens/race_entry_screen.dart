@@ -30,10 +30,30 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
   late RaceEventsCompanion _d;
   bool _sailsExpanded = false;
 
-  @override
+    @override
   void initState() {
     super.initState();
-    _d = widget.draft;
+    final d = widget.draft;
+
+    // Absent fields have a null .value. Fill in the same defaults the
+    // database would apply, so the form can read them safely.
+    Value<T> orDefault<T>(Value<T> v, T fallback) =>
+        v.present ? v : Value(fallback);
+
+    _d = d.copyWith(
+      windSpeedLinked: orDefault(d.windSpeedLinked, true),
+      scoreLinked: orDefault(d.scoreLinked, true),
+      errorTags: orDefault(d.errorTags, ''),
+      jibSailmaker: orDefault(d.jibSailmaker, ''),
+      jibDesign: orDefault(d.jibDesign, ''),
+      jibSailId: orDefault(d.jibSailId, ''),
+      mainSailmaker: orDefault(d.mainSailmaker, ''),
+      mainDesign: orDefault(d.mainDesign, ''),
+      mainSailId: orDefault(d.mainSailId, ''),
+      gennakerSailmaker: orDefault(d.gennakerSailmaker, ''),
+      gennakerDesign: orDefault(d.gennakerDesign, ''),
+      gennakerSailId: orDefault(d.gennakerSailId, ''),
+    );
   }
 
   void _update(RaceEventsCompanion Function(RaceEventsCompanion) f) {
