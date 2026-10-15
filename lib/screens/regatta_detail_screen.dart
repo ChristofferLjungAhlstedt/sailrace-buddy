@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../database/database.dart';
 import '../repositories/race_repository.dart';
 import 'race_entry_screen.dart';
+import 'regatta_form_screen.dart';
 
 class RegattaDetailScreen extends StatefulWidget {
   const RegattaDetailScreen({super.key, required this.db, required this.regattaId});
@@ -44,23 +45,23 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
     setState(() {});
   }
 
-  Future<void> _editRegattaField(
-      String field, String initial, void Function(String) apply) async {
-    final controller = TextEditingController(text: initial);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit $field'),
-        content: TextField(controller: controller, autofocus: true),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('Save')),
-        ],
-      ),
-    );
-    if (result != null) apply(result);
-  }
+  // Future<void> _editRegattaField(
+  //     String field, String initial, void Function(String) apply) async {
+  //   final controller = TextEditingController(text: initial);
+  //   final result = await showDialog<String>(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text('Edit $field'),
+  //       content: TextField(controller: controller, autofocus: true),
+  //       actions: [
+  //         TextButton(
+  //             onPressed: () => Navigator.pop(context, controller.text),
+  //             child: const Text('Save')),
+  //       ],
+  //     ),
+  //   );
+  //   if (result != null) apply(result);
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +75,27 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
       ..orderBy([(r) => OrderingTerm.asc(r.raceNumber)]);
 
     return Scaffold(
-      appBar: AppBar(title: Text(regatta.name)),
+      appBar: AppBar(
+        title: Text(regatta.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: 'Edit regatta setup',
+            onPressed: () async {
+              final changed = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => RegattaFormScreen(
+                    db: widget.db,
+                    boatId: regatta.boatId,
+                    existing: regatta,
+                  ),
+                ),
+              );
+              if (changed == true) _load();
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _addRace,
         icon: const Icon(Icons.add),

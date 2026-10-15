@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../database/database.dart';
 import 'regatta_detail_screen.dart';
+import 'regatta_form_screen.dart';
 
 class RegattaListScreen extends StatefulWidget {
   const RegattaListScreen({super.key, required this.db, required this.boat});
@@ -15,19 +16,10 @@ class RegattaListScreen extends StatefulWidget {
 
 class _RegattaListScreenState extends State<RegattaListScreen> {
   Future<void> _createRegatta() async {
-    final regatta = RegattasCompanion.insert(
-      id: const Uuid().v4(),
-      boatId: widget.boat.id,
-      name: 'New regatta',
-      startDate: DateTime.now(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    final id = await widget.db.into(widget.db.regattas).insertReturning(regatta);
-    if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => RegattaDetailScreen(db: widget.db, regattaId: id.id)));
-    setState(() {});
+      builder: (_) =>
+          RegattaFormScreen(db: widget.db, boatId: widget.boat.id),
+    ));
   }
 
   @override
