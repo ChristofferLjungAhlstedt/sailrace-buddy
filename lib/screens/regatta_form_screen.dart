@@ -30,8 +30,15 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
   late final TextEditingController _jibMaker, _jibDesign, _jibId;
   late final TextEditingController _mainMaker, _mainDesign, _mainId;
   late final TextEditingController _gennMaker, _gennDesign, _gennId;
+  late final TextEditingController _innerBase, _outerBase;
   late DateTime _start;
   DateTime? _end;
+
+  String _plain(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  double? _parseD(String text) =>
+      double.tryParse(text.trim().replaceAll(',', '.'));
 
   @override
   void initState() {
@@ -49,17 +56,36 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
     _gennMaker = TextEditingController(text: r?.gennakerSailmaker ?? '');
     _gennDesign = TextEditingController(text: r?.gennakerDesign ?? '');
     _gennId = TextEditingController(text: r?.gennakerSailId ?? '');
+    _innerBase = TextEditingController(
+        text: r?.innerShroudBaseline == null
+            ? ''
+            : _plain(r!.innerShroudBaseline!));
+    _outerBase = TextEditingController(
+        text: r?.outerShroudBaseline == null
+            ? ''
+            : _plain(r!.outerShroudBaseline!));
     _start = r?.startDate ?? DateTime.now();
     _end = r?.endDate;
+    if (r == null) _prefillBaselinesFromBoat();
   }
 
   @override
   void dispose() {
     for (final c in [
-      _name, _venue, _rake,
-      _jibMaker, _jibDesign, _jibId,
-      _mainMaker, _mainDesign, _mainId,
-      _gennMaker, _gennDesign, _gennId,
+      _name,
+      _venue,
+      _rake,
+      _jibMaker,
+      _jibDesign,
+      _jibId,
+      _mainMaker,
+      _mainDesign,
+      _mainId,
+      _gennMaker,
+      _gennDesign,
+      _gennId,
+      _innerBase,
+      _outerBase,
     ]) {
       c.dispose();
     }
@@ -85,16 +111,32 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
     });
   }
 
+  /// A new regatta starts from the boat's own baselines (editable here).
+  Future<void> _prefillBaselinesFromBoat() async {
+    final boat = await (widget.db.select(widget.db.boats)
+          ..where((b) => b.id.equals(widget.boatId)))
+        .getSingleOrNull();
+    if (boat == null || !mounted) return;
+    if (_innerBase.text.isEmpty && boat.innerShroudBaseline != null) {
+      _innerBase.text = _plain(boat.innerShroudBaseline!);
+    }
+    if (_outerBase.text.isEmpty && boat.outerShroudBaseline != null) {
+      _outerBase.text = _plain(boat.outerShroudBaseline!);
+    }
+  }
+
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Give the regatta a name')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Give the regatta a name')));
       return;
     }
     final rake = int.tryParse(_rake.text.trim());
     final now = DateTime.now();
     final existing = widget.existing;
+    final innerBase = _parseD(_innerBase.text);
+    final outerBase = _parseD(_outerBase.text);
 
     if (existing == null) {
       final id = const Uuid().v4();
@@ -107,6 +149,8 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
               endDate: Value(_end),
               venue: Value(_venue.text.trim()),
               rakeMm: Value(rake),
+              innerShroudBaseline: Value(innerBase),
+              outerShroudBaseline: Value(outerBase),
               jibSailmaker: Value(_jibMaker.text.trim()),
               jibDesign: Value(_jibDesign.text.trim()),
               jibSailId: Value(_jibId.text.trim()),
@@ -132,6 +176,8 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
             endDate: Value(_end),
             venue: _venue.text.trim(),
             rakeMm: Value(rake),
+            innerShroudBaseline: Value(innerBase),
+            outerShroudBaseline: Value(outerBase),
             jibSailmaker: _jibMaker.text.trim(),
             jibDesign: _jibDesign.text.trim(),
             jibSailId: _jibId.text.trim(),
@@ -210,7 +256,8 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.event_available),
-                  label: Text(_end == null ? 'End date' : 'End  ${fmt.format(_end!)}'),
+                  label: Text(
+                      _end == null ? 'End date' : 'End  ${fmt.format(_end!)}'),
                   onPressed: () => _pickDate(isStart: false),
                 ),
               ),
@@ -226,6 +273,27 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
           ),
           const SizedBox(height: 12),
           _field(_rake, 'Rake (mm)', keyboard: TextInputType.number),
+          Text(
+            'Shroud baselines (device readings) for this rig. Can differ '
+            'with sailmaker or mast setup.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _field(_innerBase, 'Inner baseline',
+                    keyboard:
+                        const TextInputType.numberWithOptions(decimal: true)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _field(_outerBase, 'Outer baseline',
+                    keyboard:
+                        const TextInputType.numberWithOptions(decimal: true)),
+              ),
+            ],
+          ),
           _sailGroup('Jib', _jibMaker, _jibDesign, _jibId),
           _sailGroup('Main', _mainMaker, _mainDesign, _mainId),
           _sailGroup('Gennaker', _gennMaker, _gennDesign, _gennId),

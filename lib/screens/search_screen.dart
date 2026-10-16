@@ -273,8 +273,8 @@ class _SearchScreenState extends State<SearchScreen> {
             for (final d in available)
               ListTile(
                 title: Text(d.name),
-                subtitle: Text(
-                    '${d.fieldType.label}${d.active ? '' : ' · hidden'}'),
+                subtitle:
+                    Text('${d.fieldType.label}${d.active ? '' : ' · hidden'}'),
                 onTap: () => Navigator.pop(context, d),
               ),
           ],
@@ -517,8 +517,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               final saved = await _editFilter(f);
                               if (saved && mounted) setState(() {});
                             },
-                            onDeleted: () =>
-                                setState(() => _filters.remove(f)),
+                            onDeleted: () => setState(() => _filters.remove(f)),
                           ),
                         ActionChip(
                           avatar: const Icon(Icons.add, size: 18),
@@ -612,7 +611,8 @@ class _SearchScreenState extends State<SearchScreen> {
                               'race score ${r.raceScore ?? '--'} · '
                               'rake ${r.rakeMm ?? '--'}mm · '
                               'in-hauler ${r.inhaulerMarker ?? '--'} · '
-                              'shrouds ${r.innerShroudTurns ?? '--'}/${r.outerShroudTurns ?? '--'}'
+                              'shrouds ${r.innerShroudTurns ?? 'Base'}/${r.outerShroudTurns ?? 'Base'}'
+                              '${(r.innerShroudBaseline != null || r.outerShroudBaseline != null) ? ' (baseline ${r.innerShroudBaseline ?? '--'}/${r.outerShroudBaseline ?? '--'})' : ''}'
                               '${custom.isEmpty ? '' : '\n$custom'}'
                               '${flagged ? '\n⚠ ${errorTagsLabel(r.errorTags)}' : ''}',
                             ),

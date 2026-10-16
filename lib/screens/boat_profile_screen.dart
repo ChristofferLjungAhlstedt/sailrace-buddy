@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
 import '../widgets/boat_class_picker.dart';
-import 'export_flow.dart';
 import 'delete_boat_flow.dart';
+import 'export_flow.dart';
 import 'startup_gate.dart';
 
 class BoatProfileScreen extends StatefulWidget {
@@ -17,26 +17,38 @@ class BoatProfileScreen extends StatefulWidget {
 class _BoatProfileScreenState extends State<BoatProfileScreen> {
   late final TextEditingController _name;
   late final TextEditingController _sailNumber;
+  late final TextEditingController _prebend;
   late final TextEditingController _innerBaseline;
   late final TextEditingController _outerBaseline;
   late String _class;
 
+  String _plain(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
   @override
   void initState() {
     super.initState();
-    _class = widget.boat.boatClass;
-    _name = TextEditingController(text: widget.boat.name);
-    _sailNumber = TextEditingController(text: widget.boat.sailNumber);
+    final b = widget.boat;
+    _class = b.boatClass;
+    _name = TextEditingController(text: b.name);
+    _sailNumber = TextEditingController(text: b.sailNumber);
+    _prebend = TextEditingController(
+        text: b.mastPrebendMm == null ? '' : _plain(b.mastPrebendMm!));
     _innerBaseline = TextEditingController(
-        text: widget.boat.innerShroudBaseline?.toString() ?? '');
+        text: b.innerShroudBaseline == null
+            ? ''
+            : _plain(b.innerShroudBaseline!));
     _outerBaseline = TextEditingController(
-        text: widget.boat.outerShroudBaseline?.toString() ?? '');
+        text: b.outerShroudBaseline == null
+            ? ''
+            : _plain(b.outerShroudBaseline!));
   }
 
   @override
   void dispose() {
     _name.dispose();
     _sailNumber.dispose();
+    _prebend.dispose();
     _innerBaseline.dispose();
     _outerBaseline.dispose();
     super.dispose();
@@ -48,8 +60,8 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('The boat needs a name')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('The boat needs a name')));
       return;
     }
     await widget.db.update(widget.db.boats).replace(widget.boat.copyWith(
@@ -57,6 +69,7 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
           // Keep the old class if the picker was left empty.
           boatClass: _class.isEmpty ? widget.boat.boatClass : _class,
           sailNumber: _sailNumber.text.trim(),
+          mastPrebendMm: Value(_parse(_prebend.text)),
           innerShroudBaseline: Value(_parse(_innerBaseline.text)),
           outerShroudBaseline: Value(_parse(_outerBaseline.text)),
           updatedAt: DateTime.now(),
@@ -74,7 +87,7 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
     );
   }
 
-   Future<void> _exportBackup() async {
+  Future<void> _exportBackup() async {
     await runExportFlow(context, widget.db, boat: widget.boat);
   }
 
@@ -109,9 +122,19 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
           const SizedBox(height: 12),
           const Divider(),
           const SizedBox(height: 12),
+          Text('Rig', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _prebend,
+            keyboardType: decimalKeyboard,
+            decoration: const InputDecoration(labelText: 'Mast prebend (mm)'),
+          ),
+          const SizedBox(height: 20),
           Text(
-            'Shroud baseline (device-measured tension). Race entries store '
-            'their tension as an offset in turns from this value.',
+            'Shroud baseline (device-measured tension). These are defaults: '
+            'new regattas and practice events start from them. Each regatta '
+            'and race keeps its own copy, so changing them here never alters '
+            'past races. Races store their tension as turns from their baseline.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 12),

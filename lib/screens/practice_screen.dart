@@ -16,7 +16,7 @@ class PracticeScreen extends StatefulWidget {
 class _PracticeScreenState extends State<PracticeScreen> {
   Future<void> _addPractice() async {
     final repo = RaceRepository(widget.db);
-    final draft = repo.buildDraftForPractice(boatId: widget.boat.id);
+    final draft = await repo.buildDraftForPractice(boatId: widget.boat.id);
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => RaceEntryScreen(
         db: widget.db,

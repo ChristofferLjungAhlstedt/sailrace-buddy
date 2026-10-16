@@ -51,6 +51,34 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
     return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
   }
 
+  String _plainNum(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  String _baselineCaption(double? b) =>
+      b == null ? 'no baseline set' : 'baseline ${_plainNum(b)}';
+
+  Widget _decimalField(
+      String label, double? value, ValueChanged<double?> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: TextFormField(
+        initialValue: value == null ? '' : _plainNum(value),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label, isDense: true),
+        onChanged: (text) {
+          final t = text.trim();
+          if (t.isEmpty) {
+            onChanged(null);
+            return;
+          }
+          // Ignore half-typed input like "-" until it parses.
+          final parsed = double.tryParse(t.replaceAll(',', '.'));
+          if (parsed != null) onChanged(parsed);
+        },
+      ),
+    );
+  }
+
   Widget _customFieldsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,8 +320,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                   Expanded(
                     child: Text(
                       hasSailInfo
-                          ? 'Rake ${_d.rakeMm.value ?? '--'}mm  ·  edit sails and rake'
-                          : 'Add sail and rake info',
+                          ? 'Rake ${_d.rakeMm.value ?? '--'}mm  ·  edit sails, rake and baselines'
+                          : 'Add sail, rake and baseline info',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -343,6 +371,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                 ),
                 StepperField(
                   label: 'Inner shroud',
+                  caption: _baselineCaption(_d.innerShroudBaseline.value),
                   value: _d.innerShroudTurns.value,
                   step: 0.5,
                   decimals: 1,
@@ -353,6 +382,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                 StepperField(
                   label: 'Outer shroud',
                   value: _d.outerShroudTurns.value,
+                  caption: _baselineCaption(_d.outerShroudBaseline.value),
                   step: 0.5,
                   decimals: 1,
                   suffix: 't',
@@ -397,14 +427,13 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
           const SizedBox(height: 8),
 
           // --- Waves + error source ---
-                    // --- Waves ---
+          // --- Waves ---
           _dropdownCard<WaveState>(
             label: 'Waves',
             value: _d.waveState.value,
             items: WaveState.values,
             labelBuilder: (w) => w.name,
-            onChanged: (v) =>
-                _update((d) => d.copyWith(waveState: Value(v))),
+            onChanged: (v) => _update((d) => d.copyWith(waveState: Value(v))),
           ),
           const SizedBox(height: 8),
 
@@ -456,6 +485,10 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
       children: [
         _numberField('Rake (mm)', _d.rakeMm.value,
             (v) => _update((d) => d.copyWith(rakeMm: Value(v)))),
+        _decimalField('Inner shroud baseline', _d.innerShroudBaseline.value,
+            (v) => _update((d) => d.copyWith(innerShroudBaseline: Value(v)))),
+        _decimalField('Outer shroud baseline', _d.outerShroudBaseline.value,
+            (v) => _update((d) => d.copyWith(outerShroudBaseline: Value(v)))),
         _textField('Jib sailmaker', _d.jibSailmaker.value,
             (v) => _update((d) => d.copyWith(jibSailmaker: Value(v)))),
         _textField('Jib design', _d.jibDesign.value,
@@ -526,7 +559,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
     );
   }
 
-    Widget _errorTagsCard() {
+  Widget _errorTagsCard() {
     final selected = _d.errorTags.value.isEmpty
         ? <String>{}
         : _d.errorTags.value.split(',').toSet();

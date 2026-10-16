@@ -5,10 +5,10 @@ const _uuid = Uuid();
 
 /// Centralizes the prefill rules so they can't drift out of sync between
 /// screens:
-///  - Regatta race #1  <- seeded from the Regatta (sails/rake) only.
+///  - Regatta race #1  <- seeded from the Regatta (sails, rake, baselines).
 ///  - Regatta race #2+ <- seeded from the previous race in that regatta
 ///                        (sails/rig AND trim/conditions).
-///  - Standalone practice <- always blank. No prefill of any kind.
+///  - Standalone practice <- blank, except the boat's shroud baselines.
 class RaceRepository {
   RaceRepository(this.db);
   final AppDatabase db;
@@ -29,6 +29,8 @@ class RaceRepository {
         raceNumber: Value((previous.raceNumber ?? 1) + 1),
         date: DateTime.now(),
         rakeMm: Value(previous.rakeMm),
+        innerShroudBaseline: Value(previous.innerShroudBaseline),
+        outerShroudBaseline: Value(previous.outerShroudBaseline),
         jibSailmaker: Value(previous.jibSailmaker),
         jibDesign: Value(previous.jibDesign),
         jibSailId: Value(previous.jibSailId),
@@ -65,6 +67,8 @@ class RaceRepository {
       raceNumber: const Value(1),
       date: DateTime.now(),
       rakeMm: Value(regatta.rakeMm),
+      innerShroudBaseline: Value(regatta.innerShroudBaseline),
+      outerShroudBaseline: Value(regatta.outerShroudBaseline),
       jibSailmaker: Value(regatta.jibSailmaker),
       jibDesign: Value(regatta.jibDesign),
       jibSailId: Value(regatta.jibSailId),
@@ -79,13 +83,21 @@ class RaceRepository {
     );
   }
 
-  RaceEventsCompanion buildDraftForPractice({required String boatId}) {
-    // No prefill at all, per spec - practice always starts from scratch.
+  /// Practice starts blank, except the boat's own shroud baselines.
+  Future<RaceEventsCompanion> buildDraftForPractice({
+    required String boatId,
+  }) async {
+    final boat = await (db.select(db.boats)
+          ..where((b) => b.id.equals(boatId)))
+        .getSingleOrNull();
+
     return RaceEventsCompanion.insert(
       id: _uuid.v4(),
       boatId: boatId,
       type: EventType.practice,
       date: DateTime.now(),
+      innerShroudBaseline: Value(boat?.innerShroudBaseline),
+      outerShroudBaseline: Value(boat?.outerShroudBaseline),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );

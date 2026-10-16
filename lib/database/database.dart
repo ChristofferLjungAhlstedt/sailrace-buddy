@@ -39,6 +39,8 @@ class Boats extends Table {
   // as an offset in turns from this baseline (see RaceEvents).
   RealColumn get innerShroudBaseline => real().nullable()();
   RealColumn get outerShroudBaseline => real().nullable()();
+  // Mast prebend in mm (a rig measurement, boat-level for now).
+  RealColumn get mastPrebendMm => real().nullable()();
 
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
@@ -61,6 +63,10 @@ class Regattas extends Table {
   DateTimeColumn get endDate => dateTime().nullable()();
 
   IntColumn get rakeMm => integer().nullable()();
+  // Shroud baselines (device readings) for this rig setup. They can change
+  // with the rig or sails, so regattas and races each keep their own copy.
+  RealColumn get innerShroudBaseline => real().nullable()();
+  RealColumn get outerShroudBaseline => real().nullable()();
 
   TextColumn get jibSailmaker => text().withDefault(const Constant(''))();
   TextColumn get jibDesign => text().withDefault(const Constant(''))();
@@ -107,6 +113,8 @@ class RaceEvents extends Table {
 
   // --- Sail / rig info: own copy, never live-linked to the regatta ---
   IntColumn get rakeMm => integer().nullable()();
+  RealColumn get innerShroudBaseline => real().nullable()();
+  RealColumn get outerShroudBaseline => real().nullable()();
   TextColumn get jibSailmaker => text().withDefault(const Constant(''))();
   TextColumn get jibDesign => text().withDefault(const Constant(''))();
   TextColumn get jibSailId => text().withDefault(const Constant(''))();
@@ -221,8 +229,8 @@ class AppSettings extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  @override
-  int get schemaVersion => 2;
+    @override
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -230,6 +238,31 @@ class AppDatabase extends _$AppDatabase {
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.addColumn(appSettings, appSettings.lastBoatId);
+          }
+          if (from < 3) {
+            await m.addColumn(boats, boats.mastPrebendMm);
+            await m.addColumn(regattas, regattas.innerShroudBaseline);
+            await m.addColumn(regattas, regattas.outerShroudBaseline);
+            await m.addColumn(raceEvents, raceEvents.innerShroudBaseline);
+            await m.addColumn(raceEvents, raceEvents.outerShroudBaseline);
+
+            // Existing offsets were logged against the boat's baseline,
+            // so copy it onto what's already there. (updated_at is left
+            // alone, so this never wins or loses an import merge.)
+            await customStatement('''
+              UPDATE regattas SET
+                inner_shroud_baseline = (SELECT inner_shroud_baseline
+                  FROM boats WHERE boats.id = regattas.boat_id),
+                outer_shroud_baseline = (SELECT outer_shroud_baseline
+                  FROM boats WHERE boats.id = regattas.boat_id)
+            ''');
+            await customStatement('''
+              UPDATE race_events SET
+                inner_shroud_baseline = (SELECT inner_shroud_baseline
+                  FROM boats WHERE boats.id = race_events.boat_id),
+                outer_shroud_baseline = (SELECT outer_shroud_baseline
+                  FROM boats WHERE boats.id = race_events.boat_id)
+            ''');
           }
         },
       );

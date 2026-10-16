@@ -158,6 +158,8 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
                       style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   _infoRow('Rake', '${regatta.rakeMm ?? '--'} mm'),
+                  _infoRow('Shroud baseline',
+                      '${regatta.innerShroudBaseline ?? '--'} / ${regatta.outerShroudBaseline ?? '--'}'),
                   _infoRow(
                       'Jib', '${regatta.jibSailmaker} ${regatta.jibDesign}'),
                   _infoRow(

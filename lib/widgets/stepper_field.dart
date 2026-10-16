@@ -13,6 +13,7 @@ class StepperField extends StatelessWidget {
     this.decimals = 0,
     this.suffix = '',
     this.trimZeros = false,
+    this.caption,
   });
 
   final String label;
@@ -28,6 +29,9 @@ class StepperField extends StatelessWidget {
 
   /// Show 2.5 instead of 2.50, and 3 instead of 3.00.
   final bool trimZeros;
+
+  /// Small line under the stepper, e.g. "baseline 12.5".
+  final String? caption;
 
   static const _clearToken = '__clear__';
 
@@ -85,6 +89,7 @@ class StepperField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final outline = Theme.of(context).colorScheme.outline;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -101,7 +106,7 @@ class StepperField extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .labelSmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.outline)),
+                  ?.copyWith(color: outline)),
           const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -133,6 +138,19 @@ class StepperField extends StatelessWidget {
               ),
             ],
           ),
+          if (caption != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                caption!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: outline),
+              ),
+            ),
         ],
       ),
     );
