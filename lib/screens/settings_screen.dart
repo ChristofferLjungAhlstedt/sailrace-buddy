@@ -58,6 +58,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ),
+          Padding( // Note to the user about conversion of wind speed units
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Text(
+              'Wind is stored in knots. Races logged in the other unit show '
+              'converted values, so an old race can read something like '
+              '6 kt = 3.1 m/s. Nothing is changed or lost by switching.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.tune),

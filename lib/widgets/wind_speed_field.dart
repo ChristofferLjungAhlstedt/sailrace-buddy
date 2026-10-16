@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 /// Rules:
 ///  - Simple +/- changes the single value. If a range exists, the whole
 ///    range shifts with it, so nothing is lost.
+///  - Steps snap to round numbers in the user's unit (1 kt or 0.5 m/s).
+///    A converted value like 1.7 m/s steps to 1.5 or 2.0, not 2.2.
 ///  - Editing min or max unlinks the range from the single value, and the
 ///    single value becomes the midpoint of min and max.
 ///  - Min can never exceed max (moving one pushes the other along).
@@ -51,23 +53,46 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
     _expanded = min != null && max != null && min != max;
   }
 
-  double get _step => widget.useMs ? WindSpeedField.msToKt(0.5) : 1.0;
-
   bool get _hasRange => widget.minKt != null && widget.maxKt != null;
 
   double _nonNegative(double v) => v < 0 ? 0 : v;
 
   String _fmt(double? kt) {
     if (kt == null) return '--';
-    final v = widget.useMs ? WindSpeedField.ktToMs(kt) : kt;
-    final unit = widget.useMs ? 'm/s' : 'kt';
-    return '${v.toStringAsFixed(1)} $unit';
+    if (widget.useMs) {
+      return '${WindSpeedField.ktToMs(kt).toStringAsFixed(1)} m/s';
+    }
+    // Whole knots when it is (nearly) whole, otherwise one decimal.
+    final whole = (kt - kt.roundToDouble()).abs() < 0.05;
+    return '${kt.toStringAsFixed(whole ? 0 : 1)} kt';
+  }
+
+  /// The next (direction = 1) or previous (direction = -1) value on the
+  /// step grid, in the user's own unit (1 kt or 0.5 m/s). A value that
+  /// sits between grid points, like 3.1 m/s from a race logged in knots,
+  /// snaps to the nearest round number on the first tap.
+  double _stepFrom(double? currentKt, int direction) {
+    final current = currentKt ?? 0;
+    final size = widget.useMs ? 0.5 : 1.0;
+    final shown = widget.useMs ? WindSpeedField.ktToMs(current) : current;
+    final q = shown / size;
+    final nearest = q.roundToDouble();
+
+    final double target;
+    if ((q - nearest).abs() < 0.02) {
+      target = nearest + direction; // already on the grid: one full step
+    } else {
+      target = direction > 0 ? q.ceilToDouble() : q.floorToDouble();
+    }
+
+    final next = _nonNegative(target * size);
+    return widget.useMs ? WindSpeedField.msToKt(next) : next;
   }
 
   /// Simple +/- on the single value. Shifts the range too if there is one.
-  void _nudge(double delta) {
+  void _nudge(int direction) {
     final base = widget.windSpeedKt ?? 0;
-    final next = _nonNegative(base + delta);
+    final next = _stepFrom(widget.windSpeedKt, direction);
     final applied = next - base;
     widget.onChanged(
       windSpeedKt: next,
@@ -137,7 +162,7 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                             icon: const Icon(Icons.remove, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _nudge(-_step),
+                            onPressed: () => _nudge(-1),
                           ),
                           const SizedBox(width: 8),
                           Text(_fmt(widget.windSpeedKt),
@@ -147,7 +172,7 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                             icon: const Icon(Icons.add, size: 18),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _nudge(_step),
+                            onPressed: () => _nudge(1),
                           ),
                         ],
                       )
@@ -176,9 +201,9 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                     label: 'Min',
                     display: _fmt(widget.minKt),
                     onMinus: () => _setRange(
-                        min: (widget.minKt ?? widget.windSpeedKt ?? 0) - _step),
+                        min: _stepFrom(widget.minKt ?? widget.windSpeedKt, -1)),
                     onPlus: () => _setRange(
-                        min: (widget.minKt ?? widget.windSpeedKt ?? 0) + _step),
+                        min: _stepFrom(widget.minKt ?? widget.windSpeedKt, 1)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -187,9 +212,9 @@ class _WindSpeedFieldState extends State<WindSpeedField> {
                     label: 'Max',
                     display: _fmt(widget.maxKt),
                     onMinus: () => _setRange(
-                        max: (widget.maxKt ?? widget.windSpeedKt ?? 0) - _step),
+                        max: _stepFrom(widget.maxKt ?? widget.windSpeedKt, -1)),
                     onPlus: () => _setRange(
-                        max: (widget.maxKt ?? widget.windSpeedKt ?? 0) + _step),
+                        max: _stepFrom(widget.maxKt ?? widget.windSpeedKt, 1)),
                   ),
                 ),
               ],
