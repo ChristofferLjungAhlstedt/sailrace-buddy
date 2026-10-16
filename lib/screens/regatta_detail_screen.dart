@@ -146,7 +146,7 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
                     subtitle: Text(r.windSpeedKt != null
                         ? '${r.windSpeedKt!.toStringAsFixed(0)} kt · ${r.waveState?.name ?? ''}'
                         : 'No conditions logged'),
-                    trailing: r.raceScore != null ? Text('${r.raceScore}/5') : null,
+                    trailing: r.raceScore != null ? Text('Score: ${r.raceScore}/5') : null,
                     onTap: () async {
                       await Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => RaceEntryScreen(
