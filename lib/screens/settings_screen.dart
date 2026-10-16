@@ -3,6 +3,7 @@ import '../database/database.dart';
 import 'export_flow.dart';
 import 'custom_fields_screen.dart';
 import 'import_flow.dart';
+import '../settings/app_prefs.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.db, required this.boat});
@@ -14,8 +15,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  WindUnit _windUnit = WindUnit.knots;
-
+  WindUnit _windUnit = AppPrefs.windUnit.value;
   void _toast(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
@@ -52,7 +52,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ButtonSegment(value: WindUnit.ms, label: Text('m/s')),
               ],
               selected: {_windUnit},
-              onSelectionChanged: (s) => setState(() => _windUnit = s.first),
+              onSelectionChanged: (s) {
+                setState(() => _windUnit = s.first);
+                AppPrefs.setWindUnit(widget.db, s.first);
+              },
             ),
           ),
           const Divider(),

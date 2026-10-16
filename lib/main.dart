@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'database/database.dart';
 import 'screens/startup_gate.dart';
+import 'settings/app_prefs.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   final db = AppDatabase();
+  await AppPrefs.load(db);
   runApp(SailraceBuddyApp(db: db));
 }
 
