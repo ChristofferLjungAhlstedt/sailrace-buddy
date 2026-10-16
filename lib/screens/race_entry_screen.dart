@@ -4,6 +4,7 @@ import '../repositories/race_repository.dart';
 import '../widgets/stepper_field.dart';
 import '../widgets/wind_speed_field.dart';
 import '../widgets/linked_score.dart';
+import '../models/custom_field_x.dart';
 
 /// Handles both "new regatta race" and "new/edit practice event" - same
 /// schema, same form, only the prefill source differs (handled upstream
@@ -30,6 +31,116 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
   late RaceEventsCompanion _d;
   bool _sailsExpanded = false;
   bool _exists = false;
+  List<CustomFieldDefinition> _customDefs = [];
+  Map<String, String> _customValues = {};
+
+    void _setCustom(String defId, String? value) {
+    setState(() {
+      if (value == null || value.isEmpty) {
+        _customValues.remove(defId);
+      } else {
+        _customValues[defId] = value;
+      }
+    });
+  }
+
+  String _trimNum(double v) {
+    final s = ((v * 100).round() / 100).toString();
+    return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
+  }
+
+  Widget _customFieldsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text('Custom fields',
+              style: Theme.of(context).textTheme.labelLarge),
+        ),
+        LayoutBuilder(builder: (context, constraints) {
+          final half = (constraints.maxWidth - 8) / 2;
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final def in _customDefs)
+                SizedBox(
+                  width: def.fieldType == CustomFieldType.textType
+                      ? constraints.maxWidth
+                      : half,
+                  child: _customFieldWidget(def),
+                ),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _customFieldWidget(CustomFieldDefinition def) {
+    final raw = _customValues[def.id];
+
+    switch (def.fieldType) {
+      case CustomFieldType.intType:
+      case CustomFieldType.floatType:
+        final isInt = def.fieldType == CustomFieldType.intType;
+        final unit = def.unit;
+        return StepperField(
+          label: def.name,
+          value: raw == null ? null : double.tryParse(raw),
+          step: isInt ? 1 : 0.5,
+          decimals: isInt ? 0 : 2,
+          trimZeros: !isInt,
+          suffix: unit == null || unit.isEmpty ? '' : ' $unit',
+          onChanged: (v) =>
+              _setCustom(def.id, isInt ? v.round().toString() : _trimNum(v)),
+          onCleared: () => _setCustom(def.id, null),
+        );
+
+      case CustomFieldType.enumType:
+        final options = def.options;
+        final current = (raw == null || raw.isEmpty) ? null : raw;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              decoration:
+                  InputDecoration(labelText: def.name, border: InputBorder.none),
+              isExpanded: true,
+              value: current,
+              items: [
+                const DropdownMenuItem<String>(value: null, child: Text('—')),
+                for (final o in options)
+                  DropdownMenuItem(value: o, child: Text(o)),
+                // A value from an option that was later removed.
+                if (current != null && !options.contains(current))
+                  DropdownMenuItem(
+                      value: current, child: Text('$current (removed)')),
+              ],
+              onChanged: (v) => _setCustom(def.id, v),
+            ),
+          ),
+        );
+
+      case CustomFieldType.textType:
+        return TextFormField(
+          key: ValueKey('custom-${def.id}'),
+          initialValue: raw ?? '',
+          decoration: InputDecoration(
+            labelText: def.name,
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+          // No setState here, so the cursor doesn't jump while typing.
+          onChanged: (v) => _customValues[def.id] = v,
+        );
+    }
+  }
 
   @override
   void initState() {
@@ -66,6 +177,11 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
   Future<void> _save() async {
     final repo = RaceRepository(widget.db);
     await repo.save(_d.copyWith(updatedAt: Value(DateTime.now())));
+    await widget.db.saveCustomValues(
+      raceId: _d.id.value,
+      definitionIds: _customDefs.map((d) => d.id),
+      values: _customValues,
+    );
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -74,7 +190,42 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
     final row = await (widget.db.select(widget.db.raceEvents)
           ..where((r) => r.id.equals(id)))
         .getSingleOrNull();
-    if (mounted) setState(() => _exists = row != null);
+    final exists = row != null;
+    if (mounted) setState(() => _exists = exists);
+    await _loadCustomFields(exists: exists);
+  }
+
+  Future<void> _loadCustomFields({required bool exists}) async {
+    final defs = await widget.db.activeCustomFields(widget.draft.boatId.value);
+    var values = <String, String>{};
+
+    if (exists) {
+      values = await widget.db.customValuesForRace(widget.draft.id.value);
+    } else {
+      // New regatta race: chain numbers and choices from the previous race.
+      // Practice events (no regatta) start blank. Free text isn't copied.
+      final regattaId = widget.draft.regattaId.value;
+      if (regattaId != null) {
+        final previous = await widget.db.lastRaceInRegatta(regattaId);
+        if (previous != null) {
+          final all = await widget.db.customValuesForRace(previous.id);
+          final textIds = {
+            for (final d in defs)
+              if (d.fieldType == CustomFieldType.textType) d.id,
+          };
+          values = {
+            for (final e in all.entries)
+              if (!textIds.contains(e.key)) e.key: e.value,
+          };
+        }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _customDefs = defs;
+      _customValues = values;
+    });
   }
 
   Future<void> _confirmDelete() async {
@@ -217,6 +368,11 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
             },
           ),
           const SizedBox(height: 8),
+          
+          if (_customDefs.isNotEmpty) ...[
+            _customFieldsSection(),
+            const SizedBox(height: 8),
+          ],
 
           // --- Wind speed ---
           WindSpeedField(

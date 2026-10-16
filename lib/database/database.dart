@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 export 'package:drift/drift.dart'
     show Value, OrderingTerm, Insertable, Expression;
@@ -318,6 +319,97 @@ class AppDatabase extends _$AppDatabase {
         .getSingleOrNull();
   }
 
+
+  // -------------------------------------------------------------------
+  // Custom fields
+  // -------------------------------------------------------------------
+
+  Stream<List<CustomFieldDefinition>> watchCustomFields(String boatId) {
+    return (select(customFieldDefinitions)
+          ..where((d) => d.boatId.equals(boatId))
+          ..orderBy([
+            (d) => OrderingTerm.asc(d.sortOrder),
+            (d) => OrderingTerm.asc(d.name),
+          ]))
+        .watch();
+  }
+
+  Future<List<CustomFieldDefinition>> allCustomFields(String boatId) {
+    return (select(customFieldDefinitions)
+          ..where((d) => d.boatId.equals(boatId))
+          ..orderBy([
+            (d) => OrderingTerm.asc(d.sortOrder),
+            (d) => OrderingTerm.asc(d.name),
+          ]))
+        .get();
+  }
+
+  /// Only the fields that should appear on the race form.
+  Future<List<CustomFieldDefinition>> activeCustomFields(String boatId) {
+    return (select(customFieldDefinitions)
+          ..where((d) => Expression.and([
+                d.boatId.equals(boatId),
+                d.active.equals(true),
+              ]))
+          ..orderBy([
+            (d) => OrderingTerm.asc(d.sortOrder),
+            (d) => OrderingTerm.asc(d.name),
+          ]))
+        .get();
+  }
+
+  /// fieldDefinitionId -> stored text value, for one race.
+  Future<Map<String, String>> customValuesForRace(String raceId) async {
+    final rows = await (select(customFieldValues)
+          ..where((v) => v.raceEventId.equals(raceId)))
+        .get();
+    return {for (final r in rows) r.fieldDefinitionId: r.value};
+  }
+
+  /// Saves values for the given fields. An empty/missing value removes
+  /// the row. Existing rows are updated in place (keeping their id) so
+  /// the same value keeps the same UUID across saves.
+  Future<void> saveCustomValues({
+    required String raceId,
+    required Iterable<String> definitionIds,
+    required Map<String, String> values,
+  }) {
+    return transaction(() async {
+      for (final defId in definitionIds) {
+        final value = values[defId]?.trim() ?? '';
+        final existing = await (select(customFieldValues)
+              ..where((v) => Expression.and([
+                    v.raceEventId.equals(raceId),
+                    v.fieldDefinitionId.equals(defId),
+                  ])))
+            .get();
+
+        if (value.isEmpty) {
+          if (existing.isNotEmpty) {
+            await (delete(customFieldValues)
+                  ..where((v) => Expression.and([
+                        v.raceEventId.equals(raceId),
+                        v.fieldDefinitionId.equals(defId),
+                      ])))
+                .go();
+          }
+        } else if (existing.isEmpty) {
+          await into(customFieldValues).insert(
+            CustomFieldValuesCompanion.insert(
+              id: const Uuid().v4(),
+              raceEventId: raceId,
+              fieldDefinitionId: defId,
+              value: value,
+            ),
+          );
+        } else {
+          await (update(customFieldValues)
+                ..where((v) => v.id.equals(existing.first.id)))
+              .write(CustomFieldValuesCompanion(value: Value(value)));
+        }
+      }
+    });
+  }
   
   /** DELETIONS */
   
