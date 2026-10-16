@@ -116,6 +116,11 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
         title: Text(regatta.name),
         actions: [
           IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Delete regatta',
+            onPressed: _confirmDelete,
+          ),
+          IconButton(
             icon: const Icon(Icons.edit),
             tooltip: 'Edit regatta setup',
             onPressed: () async {
@@ -130,11 +135,6 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
               );
               if (changed == true) _load();
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Delete regatta',
-            onPressed: _confirmDelete,
           ),
         ],
       ),
