@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
 import '../widgets/boat_class_picker.dart';
+import '../services/backup_service.dart';
+import 'delete_boat_flow.dart';
+import 'startup_gate.dart';
 
 class BoatProfileScreen extends StatefulWidget {
   const BoatProfileScreen({super.key, required this.db, required this.boat});
@@ -45,8 +48,8 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('The boat needs a name')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('The boat needs a name')));
       return;
     }
     await widget.db.update(widget.db.boats).replace(widget.boat.copyWith(
@@ -59,6 +62,26 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
           updatedAt: DateTime.now(),
         ));
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _deleteBoat() async {
+    final deleted = await confirmAndDeleteBoat(context, widget.db, widget.boat);
+    if (!deleted || !mounted) return;
+    // Back to the start screen, which picks the right view for what's left.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => StartupGate(db: widget.db)),
+      (route) => false,
+    );
+  }
+
+  Future<void> _exportBackup() async {
+    try {
+      await BackupService(widget.db).shareBoatBackup(widget.boat);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    }
   }
 
   @override
@@ -111,6 +134,24 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
             decoration:
                 const InputDecoration(labelText: 'Outer shroud baseline'),
           ),
+          const SizedBox(height: 32),
+          const Divider(),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _exportBackup,
+            icon: const Icon(Icons.ios_share),
+            label: const Text('Export backup of this boat'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: _deleteBoat,
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Delete boat'),
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );

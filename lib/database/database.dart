@@ -318,6 +318,9 @@ class AppDatabase extends _$AppDatabase {
         .getSingleOrNull();
   }
 
+  
+  /** DELETIONS */
+  
   /// Deletes one race/practice event and its custom field values.
   Future<void> deleteRaceEvent(String raceId) {
     return transaction(() async {
@@ -344,6 +347,51 @@ class AppDatabase extends _$AppDatabase {
             .go();
       }
       await (delete(regattas)..where((r) => r.id.equals(regattaId))).go();
+    });
+  }
+
+  /// How much data hangs off a boat, for the delete confirmation.
+  Future<({int regattas, int races})> countBoatData(String boatId) async {
+    final regs =
+        await (select(regattas)..where((t) => t.boatId.equals(boatId))).get();
+    final evs =
+        await (select(raceEvents)..where((t) => t.boatId.equals(boatId))).get();
+    return (regattas: regs.length, races: evs.length);
+  }
+
+  /// Permanently deletes a boat and everything attached to it.
+  Future<void> deleteBoat(String boatId) {
+    return transaction(() async {
+      final raceIds = await (select(raceEvents)
+            ..where((r) => r.boatId.equals(boatId)))
+          .map((r) => r.id)
+          .get();
+      if (raceIds.isNotEmpty) {
+        await (delete(customFieldValues)
+              ..where((v) => v.raceEventId.isIn(raceIds)))
+            .go();
+      }
+
+      final defIds = await (select(customFieldDefinitions)
+            ..where((d) => d.boatId.equals(boatId)))
+          .map((d) => d.id)
+          .get();
+      if (defIds.isNotEmpty) {
+        await (delete(customFieldValues)
+              ..where((v) => v.fieldDefinitionId.isIn(defIds)))
+            .go();
+      }
+
+      await (delete(raceEvents)..where((r) => r.boatId.equals(boatId))).go();
+      await (delete(regattas)..where((r) => r.boatId.equals(boatId))).go();
+      await (delete(customFieldDefinitions)
+            ..where((d) => d.boatId.equals(boatId)))
+          .go();
+      await (delete(boats)..where((b) => b.id.equals(boatId))).go();
+
+      // If this was the "last used" boat, forget it.
+      await (update(appSettings)..where((s) => s.lastBoatId.equals(boatId)))
+          .write(AppSettingsCompanion(lastBoatId: Value<String?>(null)));
     });
   }
 }
