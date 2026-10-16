@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../database/database.dart';
 import '../repositories/race_repository.dart';
 import 'race_entry_screen.dart';

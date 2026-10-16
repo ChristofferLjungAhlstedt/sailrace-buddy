@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../database/database.dart';
 import 'regatta_detail_screen.dart';
