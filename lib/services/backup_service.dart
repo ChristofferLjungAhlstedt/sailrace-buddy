@@ -13,33 +13,35 @@ class BackupService {
   /// Bump this if the file layout ever changes, so import can adapt.
   static const formatVersion = 1;
 
-  /// Everything belonging to one boat, as a JSON-ready map.
-  Future<Map<String, dynamic>> buildBoatBackup(String boatId) async {
-    final boat = await (db.select(db.boats)
-          ..where((b) => b.id.equals(boatId)))
-        .getSingle();
-    final regattas = await (db.select(db.regattas)
-          ..where((r) => r.boatId.equals(boatId)))
-        .get();
-    final races = await (db.select(db.raceEvents)
-          ..where((r) => r.boatId.equals(boatId)))
-        .get();
-    final definitions = await (db.select(db.customFieldDefinitions)
-          ..where((d) => d.boatId.equals(boatId)))
-        .get();
+  /// Builds a JSON-ready backup. Pass [boatIds] to limit it to some boats,
+  /// or leave it null for every boat on the device.
+  Future<Map<String, dynamic>> buildBackup({Set<String>? boatIds}) async {
+    var boats = await db.select(db.boats).get();
+    if (boatIds != null) {
+      boats = boats.where((b) => boatIds.contains(b.id)).toList();
+    }
+    final ids = boats.map((b) => b.id).toSet();
 
-    final raceIds = races.map((r) => r.id).toList();
-    final values = raceIds.isEmpty
-        ? <CustomFieldValue>[]
-        : await (db.select(db.customFieldValues)
-              ..where((v) => v.raceEventId.isIn(raceIds)))
-            .get();
+    final regattas = (await db.select(db.regattas).get())
+        .where((r) => ids.contains(r.boatId))
+        .toList();
+    final races = (await db.select(db.raceEvents).get())
+        .where((r) => ids.contains(r.boatId))
+        .toList();
+    final definitions = (await db.select(db.customFieldDefinitions).get())
+        .where((d) => ids.contains(d.boatId))
+        .toList();
+
+    final raceIds = races.map((r) => r.id).toSet();
+    final values = (await db.select(db.customFieldValues).get())
+        .where((v) => raceIds.contains(v.raceEventId))
+        .toList();
 
     return {
       'app': 'sailrace-buddy',
       'formatVersion': formatVersion,
       'exportedAt': DateTime.now().toUtc().toIso8601String(),
-      'boats': [boat.toJson()],
+      'boats': boats.map((b) => b.toJson()).toList(),
       'regattas': regattas.map((r) => r.toJson()).toList(),
       'raceEvents': races.map((r) => r.toJson()).toList(),
       'customFieldDefinitions': definitions.map((d) => d.toJson()).toList(),
@@ -47,16 +49,31 @@ class BackupService {
     };
   }
 
-  /// Writes the backup to a file and opens the system share sheet.
-  Future<void> shareBoatBackup(Boat boat) async {
-    final data = await buildBoatBackup(boat.id);
+  Future<void> shareBoatBackup(Boat boat) => _share(
+        boatIds: {boat.id},
+        label: boat.name,
+        subject: 'Sailrace Buddy backup: ${boat.name}',
+      );
+
+  Future<void> shareAllBackup() => _share(
+        boatIds: null,
+        label: 'all boats',
+        subject: 'Sailrace Buddy backup: all boats',
+      );
+
+  Future<void> _share({
+    required Set<String>? boatIds,
+    required String label,
+    required String subject,
+  }) async {
+    final data = await buildBackup(boatIds: boatIds);
 
     final dir = await getTemporaryDirectory();
     final stamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    var safeName = boat.name
+    var safeName = label
         .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-+|-+$'), '');
-    if (safeName.isEmpty) safeName = 'boat';
+    if (safeName.isEmpty) safeName = 'backup';
 
     final file =
         File(p.join(dir.path, 'sailrace-buddy_${safeName}_$stamp.json'));
@@ -64,8 +81,8 @@ class BackupService {
 
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'application/json')],
-      subject: 'Sailrace Buddy backup: ${boat.name}',
-      text: 'Sailrace Buddy backup of ${boat.name}',
+      subject: subject,
+      text: subject,
     );
   }
 }
