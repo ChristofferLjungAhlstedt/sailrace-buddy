@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -49,40 +51,64 @@ class BackupService {
     };
   }
 
-  Future<void> shareBoatBackup(Boat boat) => _share(
-        boatIds: {boat.id},
-        label: boat.name,
-        subject: 'Sailrace Buddy backup: ${boat.name}',
-      );
+  // --- Public entry points -------------------------------------------
 
-  Future<void> shareAllBackup() => _share(
-        boatIds: null,
-        label: 'all boats',
-        subject: 'Sailrace Buddy backup: all boats',
-      );
+  /// Opens the share sheet (Drive, email, chat apps...).
+  Future<void> shareBoatBackup(Boat boat) =>
+      _share(boatIds: {boat.id}, label: boat.name);
+
+  Future<void> shareAllBackup() => _share(boatIds: null, label: 'all boats');
+
+  /// Opens the system "Save as" dialog. Returns the saved path, or null
+  /// if the user cancelled.
+  Future<String?> saveBoatBackup(Boat boat) =>
+      _save(boatIds: {boat.id}, label: boat.name);
+
+  Future<String?> saveAllBackup() => _save(boatIds: null, label: 'all boats');
+
+  // --- Internals -----------------------------------------------------
+
+  String _fileName(String label) {
+    final stamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    var safe = label
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    if (safe.isEmpty) safe = 'backup';
+    return 'sailrace-buddy_${safe}_$stamp.json';
+  }
 
   Future<void> _share({
     required Set<String>? boatIds,
     required String label,
-    required String subject,
   }) async {
     final data = await buildBackup(boatIds: boatIds);
-
     final dir = await getTemporaryDirectory();
-    final stamp = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    var safeName = label
-        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
-        .replaceAll(RegExp(r'^-+|-+$'), '');
-    if (safeName.isEmpty) safeName = 'backup';
-
-    final file =
-        File(p.join(dir.path, 'sailrace-buddy_${safeName}_$stamp.json'));
+    final file = File(p.join(dir.path, _fileName(label)));
     await file.writeAsString(jsonEncode(data));
 
-    await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'application/json')],
-      subject: subject,
-      text: subject,
+    final subject = 'Sailrace Buddy backup: $label';
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'application/json')],
+        subject: subject,
+        text: subject,
+      ),
     );
+  }
+
+  Future<String?> _save({
+    required Set<String>? boatIds,
+    required String label,
+  }) async {
+    final data = await buildBackup(boatIds: boatIds);
+    final bytes = Uint8List.fromList(utf8.encode(jsonEncode(data)));
+    final saved = await FilePicker.saveFile(
+      dialogTitle: 'Save backup',
+      fileName: _fileName(label),
+      bytes: bytes,
+    );
+    // v13 returns a Uri (null if the user cancelled). Callers only care
+    // whether it was saved, so hand back a string or null.
+    return saved?.toString();
   }
 }

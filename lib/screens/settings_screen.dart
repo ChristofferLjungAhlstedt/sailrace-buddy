@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
-import '../services/backup_service.dart';
+import 'export_flow.dart';
 import 'custom_fields_screen.dart';
 import 'import_flow.dart';
 
@@ -22,16 +22,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _exportAll() async {
-    try {
-      final boats = await widget.db.select(widget.db.boats).get();
-      if (boats.isEmpty) {
-        if (mounted) _toast('Nothing to export yet');
-        return;
-      }
-      await BackupService(widget.db).shareAllBackup();
-    } catch (e) {
-      if (mounted) _toast('Export failed: $e');
+    final boats = await widget.db.select(widget.db.boats).get();
+    if (boats.isEmpty) {
+      if (mounted) _toast('Nothing to export yet');
+      return;
     }
+    if (!mounted) return;
+    await runExportFlow(context, widget.db);
   }
 
   Future<void> _import() async {

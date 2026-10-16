@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
-import '../services/backup_service.dart';
+import 'export_flow.dart';
 
 enum _Choice { exportFirst, withoutBackup }
 
@@ -46,17 +46,10 @@ Future<bool> confirmAndDeleteBoat(
 
   // --- Step 2 (optional): export ---
   if (choice == _Choice.exportFirst) {
-    try {
-      await BackupService(db).shareBoatBackup(boat);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed, nothing was deleted: $e')),
-        );
-      }
-      return false;
-    }
-    if (!context.mounted) return false;
+    final done = await runExportFlow(context, db, boat: boat);
+    // Backed out of the export sheet or the save dialog: stop here,
+    // nothing is deleted.
+    if (!done || !context.mounted) return false;
   }
 
   // --- Step 3: final confirmation ---

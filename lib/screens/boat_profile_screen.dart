@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
 import '../widgets/boat_class_picker.dart';
-import '../services/backup_service.dart';
+import 'export_flow.dart';
 import 'delete_boat_flow.dart';
 import 'startup_gate.dart';
 
@@ -74,14 +74,8 @@ class _BoatProfileScreenState extends State<BoatProfileScreen> {
     );
   }
 
-  Future<void> _exportBackup() async {
-    try {
-      await BackupService(widget.db).shareBoatBackup(widget.boat);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Export failed: $e')));
-    }
+   Future<void> _exportBackup() async {
+    await runExportFlow(context, widget.db, boat: widget.boat);
   }
 
   @override
