@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../database/database.dart';
 import '../repositories/race_repository.dart';
 import 'race_entry_screen.dart';
+import '../models/wind_format.dart';
 
 class PracticeScreen extends StatefulWidget {
   const PracticeScreen({super.key, required this.db, required this.boat});
@@ -29,7 +30,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   @override
   Widget build(BuildContext context) {
     final query = widget.db.select(widget.db.raceEvents)
-                  ..where((r) => Expression.and([
+      ..where((r) => Expression.and([
             r.boatId.equals(widget.boat.id),
             r.type.equalsValue(EventType.practice),
           ]))
@@ -55,10 +56,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
             itemBuilder: (context, i) {
               final e = events[i];
               return ListTile(
-                title: Text(
-                    e.windSpeedKt != null ? '${e.windSpeedKt!.toStringAsFixed(0)} kt' : 'Practice'),
+                title: Text(e.windSpeedKt != null
+                    ? formatWind(e.windSpeedKt)
+                    : 'Practice'),
                 subtitle: Text(e.date.toString().split(' ').first),
-                trailing: e.boatFeelScore != null ? Text('${e.boatFeelScore}/5') : null,
+                trailing: e.boatFeelScore != null
+                    ? Text('${e.boatFeelScore}/5')
+                    : null,
                 onTap: () async {
                   await Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => RaceEntryScreen(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
 import 'race_entry_screen.dart';
+import '../models/wind_format.dart';
 
 class ArchiveScreen extends StatelessWidget {
   const ArchiveScreen({super.key, required this.db, required this.boat});
@@ -28,11 +29,11 @@ class ArchiveScreen extends StatelessWidget {
                 title: Text(isRegatta
                     ? 'Regatta race ${e.raceNumber ?? ''}'
                     : 'Practice'),
-                subtitle: Text(
-                    '${e.date.toString().split(' ').first} · '
-                    '${e.windSpeedKt?.toStringAsFixed(0) ?? '--'} kt'),
-                trailing:
-                    e.boatFeelScore != null ? Text('${e.boatFeelScore}/5') : null,
+                subtitle: Text('${e.date.toString().split(' ').first} · '
+                    '${formatWind(e.windSpeedKt)}'),
+                trailing: e.boatFeelScore != null
+                    ? Text('${e.boatFeelScore}/5')
+                    : null,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => RaceEntryScreen(
                     db: db,

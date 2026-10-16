@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
+import '../models/error_tag_x.dart';
+import '../models/wind_format.dart';
+import '../settings/app_prefs.dart';
 import 'race_entry_screen.dart';
 
 enum _Sort { boatFeel, raceScore, wind }
@@ -14,8 +17,10 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  double _center = 12;
-  double _tolerance = 2;
+  // The sliders work in the user's own unit; matching converts to knots.
+  final bool _ms = AppPrefs.windUnit.value == WindUnit.ms;
+  late double _center = _ms ? 6 : 12;
+  late double _tolerance = _ms ? 1 : 2;
   bool _filterByWind = true;
   bool _includeFlagged = true;
   _Sort _sort = _Sort.boatFeel;
@@ -40,7 +45,14 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
-  // --- Helpers -------------------------------------------------------
+  // --- Unit helpers --------------------------------------------------
+
+  String get _u => _ms ? 'm/s' : 'kt';
+  double _toKt(double v) => _ms ? msToKt(v) : v;
+  String _centerText(double v) => '${v.toStringAsFixed(_ms ? 1 : 0)} $_u';
+  String _tolText(double v) => '${v.toStringAsFixed(_ms ? 2 : 1)} $_u';
+
+  // --- Data helpers --------------------------------------------------
 
   /// Single representative wind value: the quick-entry value, or the
   /// midpoint of the range if only a range exists.
@@ -55,8 +67,8 @@ class _SearchScreenState extends State<SearchScreen> {
   /// Ranges match if they overlap the search window; single values match
   /// if they fall inside it.
   bool _matchesWind(RaceEvent r) {
-    final lo = _center - _tolerance;
-    final hi = _center + _tolerance;
+    final lo = _toKt(_center - _tolerance);
+    final hi = _toKt(_center + _tolerance);
     final min = r.windSpeedMinKt;
     final max = r.windSpeedMaxKt;
     if (min != null && max != null) {
@@ -70,10 +82,10 @@ class _SearchScreenState extends State<SearchScreen> {
     final min = r.windSpeedMinKt;
     final max = r.windSpeedMaxKt;
     if (min != null && max != null && min != max) {
-      return '${min.toStringAsFixed(0)}-${max.toStringAsFixed(0)} kt';
+      return formatWindRange(min, max);
     }
     final w = _windMid(r);
-    return w == null ? 'no wind logged' : '${w.toStringAsFixed(0)} kt';
+    return w == null ? 'no wind logged' : formatWind(w);
   }
 
   /// Compares numbers with missing values always last.
@@ -100,11 +112,15 @@ class _SearchScreenState extends State<SearchScreen> {
           break;
         case _Sort.raceScore:
           c = _cmp(a.raceScore, b.raceScore, descending: true);
-          if (c == 0) c = _cmp(a.boatFeelScore, b.boatFeelScore, descending: true);
+          if (c == 0) {
+            c = _cmp(a.boatFeelScore, b.boatFeelScore, descending: true);
+          }
           break;
         case _Sort.wind:
           c = _cmp(_windMid(a), _windMid(b), descending: false);
-          if (c == 0) c = _cmp(a.boatFeelScore, b.boatFeelScore, descending: true);
+          if (c == 0) {
+            c = _cmp(a.boatFeelScore, b.boatFeelScore, descending: true);
+          }
           break;
       }
       // Final tie-break: newest first.
@@ -118,6 +134,9 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final results = _visible;
+    final lo = (_center - _tolerance).clamp(0, 999);
+    final hi = _center + _tolerance;
+    final digits = _ms ? 1 : 0;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Search trims')),
@@ -131,8 +150,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Only show this wind range'),
                   subtitle: Text(_filterByWind
-                      ? '${(_center - _tolerance).clamp(0, 99).toStringAsFixed(0)}'
-                          '-${(_center + _tolerance).toStringAsFixed(0)} kt'
+                      ? '${lo.toStringAsFixed(digits)}-${hi.toStringAsFixed(digits)} $_u'
                       : 'Showing everything'),
                   value: _filterByWind,
                   onChanged: (v) => setState(() => _filterByWind = v),
@@ -145,38 +163,37 @@ class _SearchScreenState extends State<SearchScreen> {
                       children: [
                         Row(
                           children: [
-                            const SizedBox(width: 72, child: Text('Wind')),
+                            const SizedBox(width: 56, child: Text('Wind')),
                             Expanded(
                               child: Slider(
                                 value: _center,
-                                min: 2,
-                                max: 30,
+                                min: _ms ? 1 : 2,
+                                max: _ms ? 15 : 30,
                                 divisions: 28,
-                                label: '${_center.round()} kt',
+                                label: _centerText(_center),
                                 onChanged: (v) => setState(() => _center = v),
                               ),
                             ),
                             SizedBox(
-                                width: 48, child: Text('${_center.round()} kt')),
+                                width: 68, child: Text(_centerText(_center))),
                           ],
                         ),
                         Row(
                           children: [
-                            const SizedBox(width: 72, child: Text('+/-')),
+                            const SizedBox(width: 56, child: Text('+/-')),
                             Expanded(
                               child: Slider(
                                 value: _tolerance,
                                 min: 0,
-                                max: 6,
+                                max: _ms ? 3 : 6,
                                 divisions: 12,
-                                label: '${_tolerance.toStringAsFixed(1)} kt',
+                                label: _tolText(_tolerance),
                                 onChanged: (v) =>
                                     setState(() => _tolerance = v),
                               ),
                             ),
                             SizedBox(
-                                width: 48,
-                                child: Text('${_tolerance.toStringAsFixed(1)}')),
+                                width: 68, child: Text(_tolText(_tolerance))),
                           ],
                         ),
                       ],
@@ -224,10 +241,12 @@ class _SearchScreenState extends State<SearchScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : results.isEmpty
                     ? Center(
-                        child: Text(_filterByWind
-                            ? 'No matching trims in this wind range.\nTurn off the range switch to see everything.'
-                            : 'Nothing logged yet.',
-                            textAlign: TextAlign.center),
+                        child: Text(
+                          _filterByWind
+                              ? 'No matching trims in this wind range.\nTurn off the range switch to see everything.'
+                              : 'Nothing logged yet.',
+                          textAlign: TextAlign.center,
+                        ),
                       )
                     : ListView.builder(
                         itemCount: results.length,
@@ -247,7 +266,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               'rake ${r.rakeMm ?? '--'}mm · '
                               'in-hauler ${r.inhaulerMarker ?? '--'} · '
                               'shrouds ${r.innerShroudTurns ?? '--'}/${r.outerShroudTurns ?? '--'}'
-                              '${flagged ? '  ⚠ ${r.errorTags}' : ''}',
+                              '${flagged ? '  ⚠ ${errorTagsLabel(r.errorTags)}' : ''}',
                             ),
                             isThreeLine: true,
                             onTap: () async {

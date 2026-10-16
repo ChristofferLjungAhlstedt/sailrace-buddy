@@ -245,6 +245,18 @@ class AppDatabase extends _$AppDatabase {
       AppSettingsCompanion(id: const Value(0), lastBoatId: Value(boatId)),
     );
   }
+
+  Future<WindUnit> getWindUnit() async {
+    final row = await (select(appSettings)..where((s) => s.id.equals(0)))
+        .getSingleOrNull();
+    return row?.windUnit ?? WindUnit.knots;
+  }
+
+  Future<void> setWindUnit(WindUnit unit) {
+    return into(appSettings).insertOnConflictUpdate(
+      AppSettingsCompanion(id: const Value(0), windUnit: Value(unit)),
+    );
+  }
   // -------------------------------------------------------------------
   // Convenience queries. Keep query logic here, not scattered through
   // the UI layer, so the "best trim for this wind speed" feature has a
@@ -318,7 +330,6 @@ class AppDatabase extends _$AppDatabase {
           ..limit(1))
         .getSingleOrNull();
   }
-
 
   // -------------------------------------------------------------------
   // Custom fields
@@ -410,9 +421,9 @@ class AppDatabase extends _$AppDatabase {
       }
     });
   }
-  
+
   /** DELETIONS */
-  
+
   /// Deletes one race/practice event and its custom field values.
   Future<void> deleteRaceEvent(String raceId) {
     return transaction(() async {

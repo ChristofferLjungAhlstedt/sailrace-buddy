@@ -3,6 +3,8 @@ import '../database/database.dart';
 import '../repositories/race_repository.dart';
 import 'race_entry_screen.dart';
 import 'regatta_form_screen.dart';
+import '../models/wind_format.dart';
+import '../widgets/linked_score.dart';
 
 class RegattaDetailScreen extends StatefulWidget {
   const RegattaDetailScreen(
@@ -189,7 +191,7 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
                   return ListTile(
                     title: Text('Race ${r.raceNumber ?? '?'}'),
                     subtitle: Text(r.windSpeedKt != null
-                        ? '${r.windSpeedKt!.toStringAsFixed(0)} kt · ${r.waveState?.name ?? ''}'
+                        ? '${formatWind(r.windSpeedKt)} · ${r.waveState?.name ?? ''}'
                         : 'No conditions logged'),
                     trailing: r.raceScore != null
                         ? Text('Score: ${r.raceScore}/5')
@@ -213,6 +215,20 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
           Text('Post-regatta review',
               style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
+          LinkedScore(
+            label: 'Overall rating',
+            hint: '(how the boat performed)',
+            value: regatta.overallRating,
+            onChanged: (v) async {
+              final current = _regatta!;
+              // Tapping the current rating again clears it.
+              final int? next = v == current.overallRating ? null : v;
+              final updated = current.copyWith(overallRating: Value(next));
+              await widget.db.update(widget.db.regattas).replace(updated);
+              if (mounted) setState(() => _regatta = updated);
+            },
+          ),
+          const SizedBox(height: 8),
           TextFormField(
             initialValue: regatta.reviewNotes ?? '',
             decoration: const InputDecoration(
@@ -220,12 +236,12 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
                 border: OutlineInputBorder()),
             maxLines: 3,
             onChanged: (v) {
-              final updated = regatta.copyWith(reviewNotes: Value(v));
-              _regatta =
-                  updated; // keep our copy current (no setState, so the cursor doesn't jump)
+              final updated = _regatta!.copyWith(reviewNotes: Value(v));
+              _regatta = updated; // no setState, so the cursor doesn't jump
               widget.db.update(widget.db.regattas).replace(updated);
             },
           ),
+          const SizedBox(height: 80), // room for the Add race button
         ],
       ),
     );
