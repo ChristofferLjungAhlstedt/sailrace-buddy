@@ -52,7 +52,7 @@ class _BoatClassPickerState extends State<BoatClassPicker> {
     return Column(
       children: [
         DropdownButtonFormField<String>(
-          value: _selected,
+          initialValue: _selected,
           decoration: const InputDecoration(labelText: 'Boat class'),
           items: [
             for (final c in boatClasses)

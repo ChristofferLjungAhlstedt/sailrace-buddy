@@ -317,7 +317,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
         child: DropdownButtonFormField<T>(
           decoration:
               InputDecoration(labelText: label, border: InputBorder.none),
-          value: value,
+          initialValue: value,
           items: items
               .map((e) =>
                   DropdownMenuItem(value: e, child: Text(labelBuilder(e))))
@@ -343,7 +343,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
         child: DropdownButtonFormField<String>(
           decoration: const InputDecoration(
               labelText: 'Error source', border: InputBorder.none),
-          value: current.isEmpty ? null : current.first,
+          initialValue: current.isEmpty ? null : current.first,
           hint: const Text('None'),
           items: ErrorTag.values
               .map((e) => DropdownMenuItem(value: e.name, child: Text(e.name)))
