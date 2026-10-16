@@ -5,6 +5,8 @@ import '../widgets/stepper_field.dart';
 import '../widgets/wind_speed_field.dart';
 import '../widgets/linked_score.dart';
 import '../models/custom_field_x.dart';
+import '../models/error_tag_x.dart';
+import '../settings/app_prefs.dart';
 
 /// Handles both "new regatta race" and "new/edit practice event" - same
 /// schema, same form, only the prefill source differs (handled upstream
@@ -34,7 +36,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
   List<CustomFieldDefinition> _customDefs = [];
   Map<String, String> _customValues = {};
 
-    void _setCustom(String defId, String? value) {
+  void _setCustom(String defId, String? value) {
     setState(() {
       if (value == null || value.isEmpty) {
         _customValues.remove(defId);
@@ -109,8 +111,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButtonFormField<String>(
-              decoration:
-                  InputDecoration(labelText: def.name, border: InputBorder.none),
+              decoration: InputDecoration(
+                  labelText: def.name, border: InputBorder.none),
               isExpanded: true,
               value: current,
               items: [
@@ -368,7 +370,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
             },
           ),
           const SizedBox(height: 8),
-          
+
           if (_customDefs.isNotEmpty) ...[
             _customFieldsSection(),
             const SizedBox(height: 8),
@@ -380,7 +382,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
             minKt: _d.windSpeedMinKt.value,
             maxKt: _d.windSpeedMaxKt.value,
             linked: _d.windSpeedLinked.value,
-            useMs: widget.useMs,
+            useMs: AppPrefs.windUnit.value == WindUnit.ms,
             onChanged: ({windSpeedKt, minKt, maxKt, required linked}) {
               _update((d) => d.copyWith(
                     windSpeedKt: windSpeedKt != null
@@ -395,23 +397,19 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
           const SizedBox(height: 8),
 
           // --- Waves + error source ---
-          Row(
-            children: [
-              Expanded(
-                child: _dropdownCard<WaveState>(
-                  label: 'Waves',
-                  value: _d.waveState.value,
-                  items: WaveState.values,
-                  labelBuilder: (w) => w.name,
-                  onChanged: (v) =>
-                      _update((d) => d.copyWith(waveState: Value(v))),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: _errorTagsCard()),
-            ],
+                    // --- Waves ---
+          _dropdownCard<WaveState>(
+            label: 'Waves',
+            value: _d.waveState.value,
+            items: WaveState.values,
+            labelBuilder: (w) => w.name,
+            onChanged: (v) =>
+                _update((d) => d.copyWith(waveState: Value(v))),
           ),
           const SizedBox(height: 8),
+
+          // --- Error source (multi-select) ---
+          _errorTagsCard(),
 
           // --- Scores (linked by default) ---
           LinkedScore(
@@ -439,7 +437,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
           const SizedBox(height: 8),
 
           // --- Notes ---
-          TextField(
+          TextFormField(
+            initialValue: _d.notes.value ?? '',
             decoration: const InputDecoration(
               labelText: 'Notes (not analyzed, free text)',
               border: OutlineInputBorder(),
@@ -527,29 +526,52 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
     );
   }
 
-  Widget _errorTagsCard() {
-    final current = _d.errorTags.value.isEmpty
+    Widget _errorTagsCard() {
+    final selected = _d.errorTags.value.isEmpty
         ? <String>{}
         : _d.errorTags.value.split(',').toSet();
 
+    void toggle(ErrorTag tag, bool on) {
+      final next = {...selected};
+      if (on) {
+        next.add(tag.name);
+      } else {
+        next.remove(tag.name);
+      }
+      // Store in a fixed order so the value is stable.
+      final ordered = ErrorTag.values
+          .where((t) => next.contains(t.name))
+          .map((t) => t.name)
+          .join(',');
+      _update((d) => d.copyWith(errorTags: Value(ordered)));
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          decoration: const InputDecoration(
-              labelText: 'Error source', border: InputBorder.none),
-          initialValue: current.isEmpty ? null : current.first,
-          hint: const Text('None'),
-          items: ErrorTag.values
-              .map((e) => DropdownMenuItem(value: e.name, child: Text(e.name)))
-              .toList(),
-          onChanged: (v) =>
-              _update((d) => d.copyWith(errorTags: Value(v ?? ''))),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Error source (tap any that apply)',
+              style: Theme.of(context).textTheme.labelSmall),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final tag in ErrorTag.values)
+                FilterChip(
+                  label: Text(tag.label),
+                  selected: selected.contains(tag.name),
+                  onSelected: (on) => toggle(tag, on),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
