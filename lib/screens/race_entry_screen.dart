@@ -29,6 +29,7 @@ class RaceEntryScreen extends StatefulWidget {
 class _RaceEntryScreenState extends State<RaceEntryScreen> {
   late RaceEventsCompanion _d;
   bool _sailsExpanded = false;
+  bool _exists = false;
 
   @override
   void initState() {
@@ -54,6 +55,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
       gennakerDesign: orDefault(d.gennakerDesign, ''),
       gennakerSailId: orDefault(d.gennakerSailId, ''),
     );
+
+    _checkExists();
   }
 
   void _update(RaceEventsCompanion Function(RaceEventsCompanion) f) {
@@ -66,6 +69,40 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _checkExists() async {
+    final id = widget.draft.id.value;
+    final row = await (widget.db.select(widget.db.raceEvents)
+          ..where((r) => r.id.equals(id)))
+        .getSingleOrNull();
+    if (mounted) setState(() => _exists = row != null);
+  }
+
+  Future<void> _confirmDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete "${widget.title}"?'),
+        content: const Text(
+            'This permanently removes its trim, conditions and scores. '
+            'It cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await widget.db.deleteRaceEvent(widget.draft.id.value);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasSailInfo =
@@ -76,6 +113,12 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
+          if (_exists)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete',
+              onPressed: _confirmDelete,
+            ),
           TextButton(onPressed: _save, child: const Text('Save race')),
         ],
       ),
@@ -115,7 +158,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
           const SizedBox(height: 16),
 
           // --- Trim variables ---
-                    LayoutBuilder(
+          LayoutBuilder(
             builder: (context, constraints) {
               final cardWidth = (constraints.maxWidth - 8) / 2;
               final fields = <Widget>[
@@ -130,8 +173,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                 StepperField(
                   label: 'Sheet marker',
                   value: _d.sheetMarker.value?.toDouble(),
-                  onChanged: (v) => _update(
-                      (d) => d.copyWith(sheetMarker: Value(v.round()))),
+                  onChanged: (v) =>
+                      _update((d) => d.copyWith(sheetMarker: Value(v.round()))),
                 ),
                 StepperField(
                   label: 'In-hauler',
@@ -151,8 +194,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                   step: 0.5,
                   decimals: 1,
                   suffix: 't',
-                  onChanged: (v) => _update(
-                      (d) => d.copyWith(innerShroudTurns: Value(v))),
+                  onChanged: (v) =>
+                      _update((d) => d.copyWith(innerShroudTurns: Value(v))),
                 ),
                 StepperField(
                   label: 'Outer shroud',
@@ -160,8 +203,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                   step: 0.5,
                   decimals: 1,
                   suffix: 't',
-                  onChanged: (v) => _update(
-                      (d) => d.copyWith(outerShroudTurns: Value(v))),
+                  onChanged: (v) =>
+                      _update((d) => d.copyWith(outerShroudTurns: Value(v))),
                 ),
               ];
               return Wrap(

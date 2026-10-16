@@ -5,7 +5,8 @@ import 'race_entry_screen.dart';
 import 'regatta_form_screen.dart';
 
 class RegattaDetailScreen extends StatefulWidget {
-  const RegattaDetailScreen({super.key, required this.db, required this.regattaId});
+  const RegattaDetailScreen(
+      {super.key, required this.db, required this.regattaId});
   final AppDatabase db;
   final String regattaId;
 
@@ -42,6 +43,43 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
       ),
     ));
     setState(() {});
+  }
+
+  Future<void> _confirmDelete() async {
+    final regatta = _regatta;
+    if (regatta == null) return;
+
+    final races = await (widget.db.select(widget.db.raceEvents)
+          ..where((r) => r.regattaId.equals(regatta.id)))
+        .get();
+    if (!mounted) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete "${regatta.name}"?'),
+        content: Text(races.isEmpty
+            ? 'This regatta has no races logged. It cannot be undone.'
+            : 'This also deletes its ${races.length} '
+                'race${races.length == 1 ? '' : 's'} and all their trim data. '
+                'It cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    await widget.db.deleteRegatta(regatta.id);
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   // Future<void> _editRegattaField(
@@ -93,6 +131,11 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
               if (changed == true) _load();
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Delete regatta',
+            onPressed: _confirmDelete,
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -109,11 +152,14 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Regatta setup', style: Theme.of(context).textTheme.titleSmall),
+                  Text('Regatta setup',
+                      style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   _infoRow('Rake', '${regatta.rakeMm ?? '--'} mm'),
-                  _infoRow('Jib', '${regatta.jibSailmaker} ${regatta.jibDesign}'),
-                  _infoRow('Main', '${regatta.mainSailmaker} ${regatta.mainDesign}'),
+                  _infoRow(
+                      'Jib', '${regatta.jibSailmaker} ${regatta.jibDesign}'),
+                  _infoRow(
+                      'Main', '${regatta.mainSailmaker} ${regatta.mainDesign}'),
                   _infoRow('Gennaker',
                       '${regatta.gennakerSailmaker} ${regatta.gennakerDesign}'),
                   const SizedBox(height: 4),
@@ -145,7 +191,9 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
                     subtitle: Text(r.windSpeedKt != null
                         ? '${r.windSpeedKt!.toStringAsFixed(0)} kt · ${r.waveState?.name ?? ''}'
                         : 'No conditions logged'),
-                    trailing: r.raceScore != null ? Text('Score: ${r.raceScore}/5') : null,
+                    trailing: r.raceScore != null
+                        ? Text('Score: ${r.raceScore}/5')
+                        : null,
                     onTap: () async {
                       await Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) => RaceEntryScreen(
@@ -162,15 +210,21 @@ class _RegattaDetailScreenState extends State<RegattaDetailScreen> {
             },
           ),
           const SizedBox(height: 24),
-          Text('Post-regatta review', style: Theme.of(context).textTheme.titleSmall),
+          Text('Post-regatta review',
+              style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           TextFormField(
             initialValue: regatta.reviewNotes ?? '',
             decoration: const InputDecoration(
-                labelText: 'How did the regatta go overall?', border: OutlineInputBorder()),
+                labelText: 'How did the regatta go overall?',
+                border: OutlineInputBorder()),
             maxLines: 3,
-            onChanged: (v) => widget.db.update(widget.db.regattas).replace(
-                regatta.copyWith(reviewNotes: Value(v))),
+            onChanged: (v) {
+              final updated = regatta.copyWith(reviewNotes: Value(v));
+              _regatta =
+                  updated; // keep our copy current (no setState, so the cursor doesn't jump)
+              widget.db.update(widget.db.regattas).replace(updated);
+            },
           ),
         ],
       ),

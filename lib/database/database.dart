@@ -4,7 +4,8 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-export 'package:drift/drift.dart' show Value, OrderingTerm, Insertable, Expression;
+export 'package:drift/drift.dart'
+    show Value, OrderingTerm, Insertable, Expression;
 
 part 'database.g.dart';
 
@@ -97,8 +98,7 @@ class Regattas extends Table {
 class RaceEvents extends Table {
   TextColumn get id => text()();
   TextColumn get boatId => text().references(Boats, #id)();
-  TextColumn get regattaId =>
-      text().nullable().references(Regattas, #id)();
+  TextColumn get regattaId => text().nullable().references(Regattas, #id)();
 
   TextColumn get type => textEnum<EventType>()();
   IntColumn get raceNumber => integer().nullable()();
@@ -132,7 +132,8 @@ class RaceEvents extends Table {
   RealColumn get windSpeedKt => real().nullable()();
   RealColumn get windSpeedMinKt => real().nullable()();
   RealColumn get windSpeedMaxKt => real().nullable()();
-  BoolColumn get windSpeedLinked => boolean().withDefault(const Constant(true))();
+  BoolColumn get windSpeedLinked =>
+      boolean().withDefault(const Constant(true))();
 
   TextColumn get waveState => textEnum<WaveState>().nullable()();
 
@@ -194,8 +195,8 @@ class CustomFieldValues extends Table {
 
 class AppSettings extends Table {
   IntColumn get id => integer().withDefault(const Constant(0))();
-  TextColumn get windUnit => textEnum<WindUnit>().withDefault(
-      const Constant('knots'))();
+  TextColumn get windUnit =>
+      textEnum<WindUnit>().withDefault(const Constant('knots'))();
 
   // Which boat was open last. Used to put it first in the boat picker.
   TextColumn get lastBoatId => text().nullable()();
@@ -219,7 +220,7 @@ class AppSettings extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-    @override
+  @override
   int get schemaVersion => 2;
 
   @override
@@ -255,7 +256,7 @@ class AppDatabase extends _$AppDatabase {
   /// Falls back to wind_speed_kt as both min and max when the detailed
   /// range wasn't filled in, so quick-entry and detailed-entry races are
   /// covered by the same query.
-      Future<List<RaceEvent>> bestTrimsForWind({
+  Future<List<RaceEvent>> bestTrimsForWind({
     required double minKt,
     required double maxKt,
     bool includeFlagged = true,
@@ -315,6 +316,35 @@ class AppDatabase extends _$AppDatabase {
           ..orderBy([(r) => OrderingTerm.desc(r.createdAt)])
           ..limit(1))
         .getSingleOrNull();
+  }
+
+  /// Deletes one race/practice event and its custom field values.
+  Future<void> deleteRaceEvent(String raceId) {
+    return transaction(() async {
+      await (delete(customFieldValues)
+            ..where((v) => v.raceEventId.equals(raceId)))
+          .go();
+      await (delete(raceEvents)..where((r) => r.id.equals(raceId))).go();
+    });
+  }
+
+  /// Deletes a regatta together with all of its races.
+  Future<void> deleteRegatta(String regattaId) {
+    return transaction(() async {
+      final raceIds = await (select(raceEvents)
+            ..where((r) => r.regattaId.equals(regattaId)))
+          .map((r) => r.id)
+          .get();
+
+      if (raceIds.isNotEmpty) {
+        await (delete(customFieldValues)
+              ..where((v) => v.raceEventId.isIn(raceIds)))
+            .go();
+        await (delete(raceEvents)..where((r) => r.regattaId.equals(regattaId)))
+            .go();
+      }
+      await (delete(regattas)..where((r) => r.id.equals(regattaId))).go();
+    });
   }
 }
 
