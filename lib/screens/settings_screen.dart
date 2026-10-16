@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../database/database.dart';
+import '../services/backup_service.dart';
 import 'custom_fields_screen.dart';
+import 'import_flow.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.db, required this.boat});
@@ -14,9 +16,29 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   WindUnit _windUnit = WindUnit.knots;
 
-  void _underDevelopment(String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$what is under development')));
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _exportAll() async {
+    try {
+      final boats = await widget.db.select(widget.db.boats).get();
+      if (boats.isEmpty) {
+        if (mounted) _toast('Nothing to export yet');
+        return;
+      }
+      await BackupService(widget.db).shareAllBackup();
+    } catch (e) {
+      if (mounted) _toast('Export failed: $e');
+    }
+  }
+
+  Future<void> _import() async {
+    final summary = await runImportFlow(context, widget.db);
+    if (summary == null || !mounted) return;
+    _toast('Import complete: ${summary.oneLine}. '
+        'Use Switch boat to see boats you added.');
   }
 
   @override
@@ -50,15 +72,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.download),
-            title: const Text('Export all data'),
-            subtitle: const Text('Under development'),
-            onTap: () => _underDevelopment('Export all'),
+            title: const Text('Export all boats'),
+            subtitle: const Text('One backup file with everything'),
+            onTap: _exportAll,
           ),
           ListTile(
             leading: const Icon(Icons.upload),
-            title: const Text('Import data'),
-            subtitle: const Text('Under development'),
-            onTap: () => _underDevelopment('Import'),
+            title: const Text('Import backup'),
+            subtitle: const Text('Adds to what is on this device'),
+            onTap: _import,
           ),
         ],
       ),

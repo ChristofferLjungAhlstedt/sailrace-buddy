@@ -3,6 +3,7 @@ import '../database/database.dart';
 import '../widgets/class_logo.dart';
 import 'boat_form_screen.dart';
 import 'home_screen.dart';
+import 'import_flow.dart';
 
 class BoatPickerScreen extends StatefulWidget {
   const BoatPickerScreen({super.key, required this.db});
@@ -57,22 +58,44 @@ class _BoatPickerScreenState extends State<BoatPickerScreen> {
     if (boat != null) await _open(boat);
   }
 
-  void _showImportInfo() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import is under development'),
-        content: const Text(
-          'Restoring a backup is not available yet, it is coming in a '
-          'future version. For now, create a new boat to get started.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+  // void _showImportInfo() {
+  //   showDialog<void>(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: const Text('Import is under development'),
+  //       content: const Text(
+  //         'Restoring a backup is not available yet, it is coming in a '
+  //         'future version. For now, create a new boat to get started.',
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: const Text('OK'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+    Future<void> _import() async {
+    final summary = await runImportFlow(context, widget.db);
+    if (summary == null || !mounted) return;
+
+    // A single boat in the file: go straight into it.
+    if (summary.boatIds.length == 1) {
+      final boat = await (widget.db.select(widget.db.boats)
+            ..where((b) => b.id.equals(summary.boatIds.first)))
+          .getSingleOrNull();
+      if (boat != null) {
+        await _open(boat);
+        return;
+      }
+    }
+
+    await _load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Import complete: ${summary.oneLine}')),
     );
   }
 
@@ -115,15 +138,9 @@ class _BoatPickerScreenState extends State<BoatPickerScreen> {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: _showImportInfo,
+                  onPressed: _import,
                   icon: const Icon(Icons.upload_file),
                   label: const Text('Import'),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Import is under development.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
@@ -175,7 +192,7 @@ class _BoatPickerScreenState extends State<BoatPickerScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _showImportInfo,
+                  onPressed: _import,
                   icon: const Icon(Icons.upload_file),
                   label: const Text('Import'),
                 ),
