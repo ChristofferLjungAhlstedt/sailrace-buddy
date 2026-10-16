@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import '../database/database.dart';
+import '../widgets/class_logo.dart';
+import 'boat_picker_screen.dart';
 import 'boat_profile_screen.dart';
 import 'regatta_list_screen.dart';
 import 'practice_screen.dart';
@@ -9,55 +10,64 @@ import 'archive_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.db});
+  const HomeScreen({super.key, required this.db, required this.boat});
   final AppDatabase db;
+  final Boat boat;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  Boat? _boat;
+  late Boat _boat;
 
   @override
   void initState() {
     super.initState();
-    _loadOrCreateBoat();
+    _boat = widget.boat;
   }
 
-  Future<void> _loadOrCreateBoat() async {
-    final existing = await widget.db.select(widget.db.boats).get();
-    if (existing.isNotEmpty) {
-      setState(() => _boat = existing.first);
-      return;
-    }
-    // First launch: create a default boat so the rest of the app has
-    // something to attach data to. User can rename it in Boat profile.
-    final boat = BoatsCompanion.insert(
-      id: const Uuid().v4(),
-      name: 'My J70',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-    await widget.db.into(widget.db.boats).insert(boat);
-    _loadOrCreateBoat();
+  /// Re-read the boat so name/class edits show up when coming back.
+  Future<void> _reloadBoat() async {
+    final fresh = await (widget.db.select(widget.db.boats)
+          ..where((b) => b.id.equals(_boat.id)))
+        .getSingleOrNull();
+    if (fresh != null && mounted) setState(() => _boat = fresh);
   }
+
+  Future<void> _push(Widget screen) async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => screen));
+    _reloadBoat();
+  }
+
+  String get _subtitle => _boat.sailNumber.isEmpty
+      ? _boat.boatClass
+      : '${_boat.boatClass} · ${_boat.sailNumber}';
 
   @override
   Widget build(BuildContext context) {
-    if (_boat == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final boat = _boat!;
+    final boat = _boat;
     return Scaffold(
       appBar: AppBar(
-        title: Text(boat.name),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(boat.name),
+            Text(_subtitle, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: 'Switch boat',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => SettingsScreen(db: widget.db, boat: boat))),
+                builder: (_) => BoatPickerScreen(db: widget.db))),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () =>
+                _push(SettingsScreen(db: widget.db, boat: boat)),
           ),
         ],
       ),
@@ -69,34 +79,29 @@ class _HomeScreenState extends State<HomeScreen> {
         childAspectRatio: 1.3,
         children: [
           _NavCard(
-            icon: Icons.sailing,
+            icon: ClassLogo(className: boat.boatClass, size: 32),
             label: 'Boat profile',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => BoatProfileScreen(db: widget.db, boat: boat))),
+            onTap: () => _push(BoatProfileScreen(db: widget.db, boat: boat)),
           ),
           _NavCard(
-            icon: Icons.emoji_events,
+            icon: const Icon(Icons.emoji_events, size: 32),
             label: 'Regattas',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => RegattaListScreen(db: widget.db, boat: boat))),
+            onTap: () => _push(RegattaListScreen(db: widget.db, boat: boat)),
           ),
           _NavCard(
-            icon: Icons.timer,
+            icon: const Icon(Icons.timer, size: 32),
             label: 'Practice',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => PracticeScreen(db: widget.db, boat: boat))),
+            onTap: () => _push(PracticeScreen(db: widget.db, boat: boat)),
           ),
           _NavCard(
-            icon: Icons.search,
-            label: 'Search best trim',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => SearchScreen(db: widget.db, boat: boat))),
+            icon: const Icon(Icons.search, size: 32),
+            label: 'Search trims',
+            onTap: () => _push(SearchScreen(db: widget.db, boat: boat)),
           ),
           _NavCard(
-            icon: Icons.history,
+            icon: const Icon(Icons.history, size: 32),
             label: 'Archive',
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => ArchiveScreen(db: widget.db, boat: boat))),
+            onTap: () => _push(ArchiveScreen(db: widget.db, boat: boat)),
           ),
         ],
       ),
@@ -105,8 +110,9 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _NavCard extends StatelessWidget {
-  const _NavCard({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
+  const _NavCard(
+      {required this.icon, required this.label, required this.onTap});
+  final Widget icon;
   final String label;
   final VoidCallback onTap;
 
@@ -119,7 +125,7 @@ class _NavCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32),
+            icon,
             const SizedBox(height: 8),
             Text(label, textAlign: TextAlign.center),
           ],

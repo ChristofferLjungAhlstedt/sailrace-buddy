@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'database/database.dart';
-import 'screens/home_screen.dart';
+import 'screens/startup_gate.dart';
 
 void main() {
   final db = AppDatabase();
-  runApp(J70TrimLogApp(db: db));
+  runApp(SailraceBuddyApp(db: db));
 }
 
-class J70TrimLogApp extends StatelessWidget {
-  const J70TrimLogApp({super.key, required this.db});
+class SailraceBuddyApp extends StatelessWidget {
+  const SailraceBuddyApp({super.key, required this.db});
   final AppDatabase db;
 
   @override
@@ -24,7 +24,7 @@ class J70TrimLogApp extends StatelessWidget {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      home: HomeScreen(db: db),
+      home: StartupGate(db: db),
     );
   }
 }

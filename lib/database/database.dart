@@ -197,6 +197,9 @@ class AppSettings extends Table {
   TextColumn get windUnit => textEnum<WindUnit>().withDefault(
       const Constant('knots'))();
 
+  // Which boat was open last. Used to put it first in the boat picker.
+  TextColumn get lastBoatId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -216,9 +219,30 @@ class AppSettings extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  @override
-  int get schemaVersion => 1;
+    @override
+  int get schemaVersion => 2;
 
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(appSettings, appSettings.lastBoatId);
+          }
+        },
+      );
+
+  Future<String?> getLastBoatId() async {
+    final row = await (select(appSettings)..where((s) => s.id.equals(0)))
+        .getSingleOrNull();
+    return row?.lastBoatId;
+  }
+
+  Future<void> setLastBoatId(String boatId) {
+    return into(appSettings).insertOnConflictUpdate(
+      AppSettingsCompanion(id: const Value(0), lastBoatId: Value(boatId)),
+    );
+  }
   // -------------------------------------------------------------------
   // Convenience queries. Keep query logic here, not scattered through
   // the UI layer, so the "best trim for this wind speed" feature has a
