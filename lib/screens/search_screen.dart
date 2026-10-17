@@ -612,7 +612,7 @@ class _SearchScreenState extends State<SearchScreen> {
                               'rake ${r.rakeMm ?? '--'}mm · '
                               'in-hauler ${r.inhaulerMarker ?? '--'} · '
                               'shrouds ${r.innerShroudTurns ?? 'Base'}/${r.outerShroudTurns ?? 'Base'}'
-                              '${(r.innerShroudBaseline != null || r.outerShroudBaseline != null) ? ' (baseline ${r.innerShroudBaseline ?? '--'}/${r.outerShroudBaseline ?? '--'})' : ''}'
+                              '${(r.innerShroudBaseline != null || r.outerShroudBaseline != null) ? ' (Baseline ${r.innerShroudBaseline ?? '--'}/${r.outerShroudBaseline ?? '--'})' : ''}'
                               '${custom.isEmpty ? '' : '\n$custom'}'
                               '${flagged ? '\n⚠ ${errorTagsLabel(r.errorTags)}' : ''}',
                             ),

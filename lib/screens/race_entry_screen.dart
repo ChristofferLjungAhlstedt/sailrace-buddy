@@ -55,7 +55,7 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
       v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
 
   String _baselineCaption(double? b) =>
-      b == null ? 'no baseline set' : 'baseline ${_plainNum(b)}';
+      b == null ? 'No baseline set' : 'Baseline ${_plainNum(b)}';
 
   Widget _decimalField(
       String label, double? value, ValueChanged<double?> onChanged) {
