@@ -44,8 +44,10 @@ class RaceRepository {
         sheetMarker: Value(previous.sheetMarker),
         inhaulerMarker: Value(previous.inhaulerMarker),
         jibHalyardTension: Value(previous.jibHalyardTension),
-        innerShroudTurns: Value(previous.innerShroudTurns),
-        outerShroudTurns: Value(previous.outerShroudTurns),
+        innerShroudTurns: Value(previous.innerShroudTurns ??
+            (previous.innerShroudBaseline != null ? 0.0 : null)),
+        outerShroudTurns: Value(previous.outerShroudTurns ??
+            (previous.outerShroudBaseline != null ? 0.0 : null)),
         windSpeedKt: Value(previous.windSpeedKt),
         waveState: Value(previous.waveState),
         createdAt: DateTime.now(),
@@ -67,8 +69,8 @@ class RaceRepository {
       raceNumber: const Value(1),
       date: DateTime.now(),
       rakeMm: Value(regatta.rakeMm),
-      innerShroudBaseline: Value(regatta.innerShroudBaseline),
-      outerShroudBaseline: Value(regatta.outerShroudBaseline),
+      innerShroudTurns: Value(regatta.innerShroudBaseline != null ? 0.0 : null),
+      outerShroudTurns: Value(regatta.outerShroudBaseline != null ? 0.0 : null),
       jibSailmaker: Value(regatta.jibSailmaker),
       jibDesign: Value(regatta.jibDesign),
       jibSailId: Value(regatta.jibSailId),
@@ -87,8 +89,7 @@ class RaceRepository {
   Future<RaceEventsCompanion> buildDraftForPractice({
     required String boatId,
   }) async {
-    final boat = await (db.select(db.boats)
-          ..where((b) => b.id.equals(boatId)))
+    final boat = await (db.select(db.boats)..where((b) => b.id.equals(boatId)))
         .getSingleOrNull();
 
     return RaceEventsCompanion.insert(
@@ -96,8 +97,8 @@ class RaceRepository {
       boatId: boatId,
       type: EventType.practice,
       date: DateTime.now(),
-      innerShroudBaseline: Value(boat?.innerShroudBaseline),
-      outerShroudBaseline: Value(boat?.outerShroudBaseline),
+      innerShroudTurns: Value(boat?.innerShroudBaseline != null ? 0.0 : null),
+      outerShroudTurns: Value(boat?.outerShroudBaseline != null ? 0.0 : null),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );

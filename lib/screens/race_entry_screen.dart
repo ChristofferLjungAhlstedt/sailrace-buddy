@@ -372,6 +372,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                 StepperField(
                   label: 'Inner shroud',
                   caption: _baselineCaption(_d.innerShroudBaseline.value),
+                  zeroLabel:
+                      _d.innerShroudBaseline.value != null ? 'Base' : null,
                   value: _d.innerShroudTurns.value,
                   step: 0.5,
                   decimals: 1,
@@ -383,6 +385,8 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
                   label: 'Outer shroud',
                   value: _d.outerShroudTurns.value,
                   caption: _baselineCaption(_d.outerShroudBaseline.value),
+                  zeroLabel:
+                      _d.outerShroudBaseline.value != null ? 'Base' : null,
                   step: 0.5,
                   decimals: 1,
                   suffix: 't',
@@ -485,10 +489,22 @@ class _RaceEntryScreenState extends State<RaceEntryScreen> {
       children: [
         _numberField('Rake (mm)', _d.rakeMm.value,
             (v) => _update((d) => d.copyWith(rakeMm: Value(v)))),
-        _decimalField('Inner shroud baseline', _d.innerShroudBaseline.value,
-            (v) => _update((d) => d.copyWith(innerShroudBaseline: Value(v)))),
+                _decimalField('Inner shroud baseline', _d.innerShroudBaseline.value,
+            (v) => _update((d) => d.copyWith(
+                  innerShroudBaseline: Value(v),
+                  innerShroudTurns:
+                      (!_exists && v != null && d.innerShroudTurns.value == null)
+                          ? const Value<double?>(0.0)
+                          : d.innerShroudTurns,
+                ))),
         _decimalField('Outer shroud baseline', _d.outerShroudBaseline.value,
-            (v) => _update((d) => d.copyWith(outerShroudBaseline: Value(v)))),
+            (v) => _update((d) => d.copyWith(
+                  outerShroudBaseline: Value(v),
+                  outerShroudTurns:
+                      (!_exists && v != null && d.outerShroudTurns.value == null)
+                          ? const Value<double?>(0.0)
+                          : d.outerShroudTurns,
+                ))),
         _textField('Jib sailmaker', _d.jibSailmaker.value,
             (v) => _update((d) => d.copyWith(jibSailmaker: Value(v)))),
         _textField('Jib design', _d.jibDesign.value,

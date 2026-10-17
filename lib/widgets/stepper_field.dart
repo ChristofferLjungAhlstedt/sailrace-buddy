@@ -14,6 +14,7 @@ class StepperField extends StatelessWidget {
     this.suffix = '',
     this.trimZeros = false,
     this.caption,
+    this.zeroLabel,
   });
 
   final String label;
@@ -33,10 +34,14 @@ class StepperField extends StatelessWidget {
   /// Small line under the stepper, e.g. "baseline 12.5".
   final String? caption;
 
+  /// Shown instead of the number when the value is 0, e.g. "Base".
+  final String? zeroLabel;
+
   static const _clearToken = '__clear__';
 
   String get _display {
     if (value == null) return '--';
+    if (zeroLabel != null && value!.abs() < 0.001) return zeroLabel!;
     var text = value!.toStringAsFixed(decimals);
     if (trimZeros && text.contains('.')) {
       text = text.replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
