@@ -133,10 +133,10 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
       return;
     }
     final rake = int.tryParse(_rake.text.trim());
-    final now = DateTime.now();
-    final existing = widget.existing;
     final innerBase = _parseD(_innerBase.text);
     final outerBase = _parseD(_outerBase.text);
+    final now = DateTime.now();
+    final existing = widget.existing;
 
     if (existing == null) {
       final id = const Uuid().v4();
