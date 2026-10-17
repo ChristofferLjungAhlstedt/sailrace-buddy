@@ -27,10 +27,10 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
   late final TextEditingController _name;
   late final TextEditingController _venue;
   late final TextEditingController _rake;
+  late final TextEditingController _innerBase, _outerBase;
   late final TextEditingController _jibMaker, _jibDesign, _jibId;
   late final TextEditingController _mainMaker, _mainDesign, _mainId;
   late final TextEditingController _gennMaker, _gennDesign, _gennId;
-  late final TextEditingController _innerBase, _outerBase;
   late DateTime _start;
   DateTime? _end;
 
@@ -47,6 +47,14 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
     _name = TextEditingController(text: r?.name ?? '');
     _venue = TextEditingController(text: r?.venue ?? '');
     _rake = TextEditingController(text: r?.rakeMm?.toString() ?? '');
+    _innerBase = TextEditingController(
+        text: r?.innerShroudBaseline == null
+            ? ''
+            : _plain(r!.innerShroudBaseline!));
+    _outerBase = TextEditingController(
+        text: r?.outerShroudBaseline == null
+            ? ''
+            : _plain(r!.outerShroudBaseline!));
     _jibMaker = TextEditingController(text: r?.jibSailmaker ?? '');
     _jibDesign = TextEditingController(text: r?.jibDesign ?? '');
     _jibId = TextEditingController(text: r?.jibSailId ?? '');
@@ -56,36 +64,34 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
     _gennMaker = TextEditingController(text: r?.gennakerSailmaker ?? '');
     _gennDesign = TextEditingController(text: r?.gennakerDesign ?? '');
     _gennId = TextEditingController(text: r?.gennakerSailId ?? '');
-    _innerBase = TextEditingController(
-        text: r?.innerShroudBaseline == null
-            ? ''
-            : _plain(r!.innerShroudBaseline!));
-    _outerBase = TextEditingController(
-        text: r?.outerShroudBaseline == null
-            ? ''
-            : _plain(r!.outerShroudBaseline!));
     _start = r?.startDate ?? DateTime.now();
     _end = r?.endDate;
+
+    // A new regatta starts from the boat's own baselines (editable here).
     if (r == null) _prefillBaselinesFromBoat();
+  }
+
+  Future<void> _prefillBaselinesFromBoat() async {
+    final boat = await (widget.db.select(widget.db.boats)
+          ..where((b) => b.id.equals(widget.boatId)))
+        .getSingleOrNull();
+    if (boat == null || !mounted) return;
+    if (_innerBase.text.isEmpty && boat.innerShroudBaseline != null) {
+      _innerBase.text = _plain(boat.innerShroudBaseline!);
+    }
+    if (_outerBase.text.isEmpty && boat.outerShroudBaseline != null) {
+      _outerBase.text = _plain(boat.outerShroudBaseline!);
+    }
   }
 
   @override
   void dispose() {
     for (final c in [
-      _name,
-      _venue,
-      _rake,
-      _jibMaker,
-      _jibDesign,
-      _jibId,
-      _mainMaker,
-      _mainDesign,
-      _mainId,
-      _gennMaker,
-      _gennDesign,
-      _gennId,
-      _innerBase,
-      _outerBase,
+      _name, _venue, _rake,
+      _innerBase, _outerBase,
+      _jibMaker, _jibDesign, _jibId,
+      _mainMaker, _mainDesign, _mainId,
+      _gennMaker, _gennDesign, _gennId,
     ]) {
       c.dispose();
     }
@@ -111,25 +117,11 @@ class _RegattaFormScreenState extends State<RegattaFormScreen> {
     });
   }
 
-  /// A new regatta starts from the boat's own baselines (editable here).
-  Future<void> _prefillBaselinesFromBoat() async {
-    final boat = await (widget.db.select(widget.db.boats)
-          ..where((b) => b.id.equals(widget.boatId)))
-        .getSingleOrNull();
-    if (boat == null || !mounted) return;
-    if (_innerBase.text.isEmpty && boat.innerShroudBaseline != null) {
-      _innerBase.text = _plain(boat.innerShroudBaseline!);
-    }
-    if (_outerBase.text.isEmpty && boat.outerShroudBaseline != null) {
-      _outerBase.text = _plain(boat.outerShroudBaseline!);
-    }
-  }
-
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Give the regatta a name')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Give the regatta a name')));
       return;
     }
     final rake = int.tryParse(_rake.text.trim());

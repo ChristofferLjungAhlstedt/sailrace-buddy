@@ -7,8 +7,12 @@ const _uuid = Uuid();
 /// screens:
 ///  - Regatta race #1  <- seeded from the Regatta (sails, rake, baselines).
 ///  - Regatta race #2+ <- seeded from the previous race in that regatta
-///                        (sails/rig AND trim/conditions).
+///                        (sails/rig AND trim/conditions). If the previous
+///                        race has no shroud baseline, the regatta's is used.
 ///  - Standalone practice <- blank, except the boat's shroud baselines.
+///
+/// When a shroud baseline exists, shroud tension starts at 0 turns
+/// ("Base") instead of blank.
 class RaceRepository {
   RaceRepository(this.db);
   final AppDatabase db;
@@ -18,8 +22,17 @@ class RaceRepository {
     required String regattaId,
   }) async {
     final previous = await db.lastRaceInRegatta(regattaId);
+    final regattaRow = await (db.select(db.regattas)
+          ..where((r) => r.id.equals(regattaId)))
+        .getSingle();
 
     if (previous != null) {
+      // If the previous race never got a baseline, use the regatta's.
+      final innerBase =
+          previous.innerShroudBaseline ?? regattaRow.innerShroudBaseline;
+      final outerBase =
+          previous.outerShroudBaseline ?? regattaRow.outerShroudBaseline;
+
       // Race 2+: chain everything from the immediately preceding race.
       return RaceEventsCompanion.insert(
         id: _uuid.v4(),
@@ -29,8 +42,8 @@ class RaceRepository {
         raceNumber: Value((previous.raceNumber ?? 1) + 1),
         date: DateTime.now(),
         rakeMm: Value(previous.rakeMm),
-        innerShroudBaseline: Value(previous.innerShroudBaseline),
-        outerShroudBaseline: Value(previous.outerShroudBaseline),
+        innerShroudBaseline: Value(innerBase),
+        outerShroudBaseline: Value(outerBase),
         jibSailmaker: Value(previous.jibSailmaker),
         jibDesign: Value(previous.jibDesign),
         jibSailId: Value(previous.jibSailId),
@@ -44,10 +57,10 @@ class RaceRepository {
         sheetMarker: Value(previous.sheetMarker),
         inhaulerMarker: Value(previous.inhaulerMarker),
         jibHalyardTension: Value(previous.jibHalyardTension),
-        innerShroudTurns: Value(previous.innerShroudTurns ??
-            (previous.innerShroudBaseline != null ? 0.0 : null)),
-        outerShroudTurns: Value(previous.outerShroudTurns ??
-            (previous.outerShroudBaseline != null ? 0.0 : null)),
+        innerShroudTurns: Value(
+            previous.innerShroudTurns ?? (innerBase != null ? 0.0 : null)),
+        outerShroudTurns: Value(
+            previous.outerShroudTurns ?? (outerBase != null ? 0.0 : null)),
         windSpeedKt: Value(previous.windSpeedKt),
         waveState: Value(previous.waveState),
         createdAt: DateTime.now(),
@@ -56,11 +69,7 @@ class RaceRepository {
     }
 
     // Race 1: seed sail/rig fields from the Regatta. Trim and conditions
-    // start blank - they aren't a Regatta-level concept.
-    final regatta = await (db.select(db.regattas)
-          ..where((r) => r.id.equals(regattaId)))
-        .getSingle();
-
+    // start blank (shrouds start at Base if there is a baseline).
     return RaceEventsCompanion.insert(
       id: _uuid.v4(),
       boatId: boatId,
@@ -68,18 +77,22 @@ class RaceRepository {
       type: EventType.regattaRace,
       raceNumber: const Value(1),
       date: DateTime.now(),
-      rakeMm: Value(regatta.rakeMm),
-      innerShroudTurns: Value(regatta.innerShroudBaseline != null ? 0.0 : null),
-      outerShroudTurns: Value(regatta.outerShroudBaseline != null ? 0.0 : null),
-      jibSailmaker: Value(regatta.jibSailmaker),
-      jibDesign: Value(regatta.jibDesign),
-      jibSailId: Value(regatta.jibSailId),
-      mainSailmaker: Value(regatta.mainSailmaker),
-      mainDesign: Value(regatta.mainDesign),
-      mainSailId: Value(regatta.mainSailId),
-      gennakerSailmaker: Value(regatta.gennakerSailmaker),
-      gennakerDesign: Value(regatta.gennakerDesign),
-      gennakerSailId: Value(regatta.gennakerSailId),
+      rakeMm: Value(regattaRow.rakeMm),
+      innerShroudBaseline: Value(regattaRow.innerShroudBaseline),
+      outerShroudBaseline: Value(regattaRow.outerShroudBaseline),
+      innerShroudTurns:
+          Value(regattaRow.innerShroudBaseline != null ? 0.0 : null),
+      outerShroudTurns:
+          Value(regattaRow.outerShroudBaseline != null ? 0.0 : null),
+      jibSailmaker: Value(regattaRow.jibSailmaker),
+      jibDesign: Value(regattaRow.jibDesign),
+      jibSailId: Value(regattaRow.jibSailId),
+      mainSailmaker: Value(regattaRow.mainSailmaker),
+      mainDesign: Value(regattaRow.mainDesign),
+      mainSailId: Value(regattaRow.mainSailId),
+      gennakerSailmaker: Value(regattaRow.gennakerSailmaker),
+      gennakerDesign: Value(regattaRow.gennakerDesign),
+      gennakerSailId: Value(regattaRow.gennakerSailId),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -89,7 +102,8 @@ class RaceRepository {
   Future<RaceEventsCompanion> buildDraftForPractice({
     required String boatId,
   }) async {
-    final boat = await (db.select(db.boats)..where((b) => b.id.equals(boatId)))
+    final boat = await (db.select(db.boats)
+          ..where((b) => b.id.equals(boatId)))
         .getSingleOrNull();
 
     return RaceEventsCompanion.insert(
@@ -97,8 +111,12 @@ class RaceRepository {
       boatId: boatId,
       type: EventType.practice,
       date: DateTime.now(),
-      innerShroudTurns: Value(boat?.innerShroudBaseline != null ? 0.0 : null),
-      outerShroudTurns: Value(boat?.outerShroudBaseline != null ? 0.0 : null),
+      innerShroudBaseline: Value(boat?.innerShroudBaseline),
+      outerShroudBaseline: Value(boat?.outerShroudBaseline),
+      innerShroudTurns:
+          Value(boat?.innerShroudBaseline != null ? 0.0 : null),
+      outerShroudTurns:
+          Value(boat?.outerShroudBaseline != null ? 0.0 : null),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
