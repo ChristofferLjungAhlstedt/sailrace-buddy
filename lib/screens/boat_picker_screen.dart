@@ -45,8 +45,7 @@ class _BoatPickerScreenState extends State<BoatPickerScreen> {
     await widget.db.setLastBoatId(boat.id);
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-          builder: (_) => HomeScreen(db: widget.db, boat: boat)),
+      MaterialPageRoute(builder: (_) => HomeScreen(db: widget.db, boat: boat)),
       (route) => false,
     );
   }
@@ -77,7 +76,7 @@ class _BoatPickerScreenState extends State<BoatPickerScreen> {
   //   );
   // }
 
-    Future<void> _import() async {
+  Future<void> _import() async {
     final summary = await runImportFlow(context, widget.db);
     if (summary == null || !mounted) return;
 
@@ -119,7 +118,13 @@ class _BoatPickerScreenState extends State<BoatPickerScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.sailing, size: 72, color: theme.colorScheme.primary),
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: Image.asset('assets/logo/icon.png',
+                        width: 96, height: 96),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Text('Sailrace Buddy',
                     textAlign: TextAlign.center,
